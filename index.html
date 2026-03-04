@@ -64,6 +64,7 @@
 <div id="pause-overlay">
   <h2>PAUSED</h2>
   <p>Press ESC to resume</p>
+  <button id="resume-btn">RESUME</button>
   <button id="new-game-btn">NEW GAME</button>
 
   <!-- Confirmation panel -->
@@ -80,11 +81,21 @@
   ← → Move &nbsp;|&nbsp; ↑ Rotate &nbsp;|&nbsp; ↓ Soft Drop &nbsp;|&nbsp; Space Hard Drop &nbsp;|&nbsp; Shift / C Hold &nbsp;|&nbsp; Esc Pause
 </div>
 
-<!-- Mobile top bar (score/level + pause) -->
+<!-- Mobile top bar (hold, score/level, next + pause) -->
 <div id="mobile-top-bar">
-  <div class="mobile-stat">SCR <span id="m-score">0</span></div>
-  <div class="mobile-stat">LVL <span id="m-level">0</span></div>
-  <div class="mobile-stat">LNS <span id="m-lines">0</span></div>
+  <div class="mobile-mini-box">
+    <div class="mobile-mini-label">HOLD</div>
+    <canvas id="m-hold-canvas"></canvas>
+  </div>
+  <div class="mobile-stats">
+    <div class="mobile-stat">SCR <span id="m-score">0</span></div>
+    <div class="mobile-stat">LVL <span id="m-level">0</span></div>
+    <div class="mobile-stat">LNS <span id="m-lines">0</span></div>
+  </div>
+  <div class="mobile-mini-box">
+    <div class="mobile-mini-label">NEXT</div>
+    <canvas id="m-next-canvas"></canvas>
+  </div>
   <button class="mobile-pause-btn" id="m-pause">⏸</button>
 </div>
 

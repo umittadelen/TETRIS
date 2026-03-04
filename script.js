@@ -85,6 +85,19 @@ nextCanvas.width = SIDE_W;
 nextCanvas.height = SIDE_H;
 const nctx = nextCanvas.getContext('2d');
 
+// Mobile mini canvases for hold/next
+const M_MINI = 12;
+const M_SIDE_W = 4 * M_MINI + 8;
+const M_SIDE_H = 3 * M_MINI + 8;
+
+const mHoldCanvas = document.getElementById('m-hold-canvas');
+if (mHoldCanvas) { mHoldCanvas.width = M_SIDE_W; mHoldCanvas.height = M_SIDE_H; }
+const mhctx = mHoldCanvas ? mHoldCanvas.getContext('2d') : null;
+
+const mNextCanvas = document.getElementById('m-next-canvas');
+if (mNextCanvas) { mNextCanvas.width = M_SIDE_W; mNextCanvas.height = M_SIDE_H; }
+const mnctx = mNextCanvas ? mNextCanvas.getContext('2d') : null;
+
 // ─── GAME STATE ──────────────────────────────────────────────────────────────
 let grid, piece, nextIdx, heldIdx, canHold;
 let score, level, linesCleared, combo, b2b;
@@ -402,10 +415,9 @@ function shadeColor(hex, pct) {
     return `rgb(${r},${g},${b})`;
 }
 
-function drawBlock(context, x, y, color, alpha = 1, outlineOnly = false) {
+function drawBlockAt(context, px, py, S, color, alpha, outlineOnly) {
     context.globalAlpha = alpha;
-    const px = x * BLOCK, py = y * BLOCK, S = BLOCK;
-    const B = Math.max(2, Math.floor(S * 0.15)); // bevel size
+    const B = Math.max(1, Math.floor(S * 0.15)); // bevel size
 
     if (outlineOnly) {
         context.strokeStyle = color;
@@ -452,24 +464,32 @@ function drawBlock(context, x, y, color, alpha = 1, outlineOnly = false) {
     context.globalAlpha = 1;
 }
 
-function drawMiniPiece(context, shapeIdx, canvasW, canvasH) {
+function drawBlock(context, x, y, color, alpha = 1, outlineOnly = false) {
+    drawBlockAt(context, x * BLOCK, y * BLOCK, BLOCK, color, alpha, outlineOnly);
+}
+
+function drawMiniPiece(context, shapeIdx, canvasW, canvasH, miniSize) {
     context.clearRect(0, 0, canvasW, canvasH);
     if (shapeIdx === null) return;
     const shape = SHAPES[shapeIdx];
     const color = COLORS[shapeIdx];
-    const mini = MINI;
+    const mini = miniSize || MINI;
     const offX = Math.floor((canvasW - shape[0].length * mini) / 2);
     const offY = Math.floor((canvasH - shape.length * mini) / 2);
     for (let r = 0; r < shape.length; r++)
         for (let c = 0; c < shape[r].length; c++)
-            if (shape[r][c]) {
-                context.fillStyle = color;
-                context.fillRect(offX + c * mini, offY + r * mini, mini - 1, mini - 1);
-            }
+            if (shape[r][c])
+                drawBlockAt(context, offX + c * mini, offY + r * mini, mini, color, 1, false);
 }
 
-function renderHold() { drawMiniPiece(hctx, heldIdx, holdCanvas.width, holdCanvas.height); }
-function renderNext() { drawMiniPiece(nctx, nextIdx, nextCanvas.width, nextCanvas.height); }
+function renderHold() {
+    drawMiniPiece(hctx, heldIdx, holdCanvas.width, holdCanvas.height);
+    if (mhctx) drawMiniPiece(mhctx, heldIdx, mHoldCanvas.width, mHoldCanvas.height, M_MINI);
+}
+function renderNext() {
+    drawMiniPiece(nctx, nextIdx, nextCanvas.width, nextCanvas.height);
+    if (mnctx) drawMiniPiece(mnctx, nextIdx, mNextCanvas.width, mNextCanvas.height, M_MINI);
+}
 
 function render() {
     ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
@@ -667,6 +687,7 @@ function togglePause() {
         // Reset confirm state
         document.getElementById('confirm-panel').style.display = 'none';
         document.getElementById('new-game-btn').style.display = 'block';
+        document.getElementById('resume-btn').style.display = 'block';
         lastTime = null;
         bgMusic.play().catch(() => { });
         animFrame = requestAnimationFrame(gameLoop);
@@ -751,14 +772,20 @@ function endGame() {
     document.getElementById('overlay').style.display = 'flex';
 }
 
+document.getElementById('resume-btn').addEventListener('click', () => {
+    togglePause();
+});
+
 document.getElementById('new-game-btn').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'block';
     document.getElementById('new-game-btn').style.display = 'none';
+    document.getElementById('resume-btn').style.display = 'none';
 });
 
 document.getElementById('confirm-yes').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
     document.getElementById('new-game-btn').style.display = 'block';
+    document.getElementById('resume-btn').style.display = 'block';
     document.getElementById('pause-overlay').style.display = 'none';
     gamePaused = false;
     cancelAnimationFrame(animFrame);
@@ -769,6 +796,7 @@ document.getElementById('confirm-yes').addEventListener('click', () => {
 document.getElementById('confirm-no').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
     document.getElementById('new-game-btn').style.display = 'block';
+    document.getElementById('resume-btn').style.display = 'block';
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
@@ -783,87 +811,8 @@ document.getElementById('start-btn').addEventListener('click', () => {
 document.getElementById('best-val').textContent = highScore;
 render();
 
-// ─── MOBILE TOUCH / DRAG CONTROLS ───────────────────────────────────────────
+// ─── MOBILE CONTROLS (BUTTONS ONLY) ─────────────────────────────────────────
 (function () {
-    const SWIPE_THRESH = 20;      // px for a discrete swipe move
-    const HARD_DROP_VEL = 1.8;    // px/ms for hard-drop detection
-    let touchId = null;
-    let startX, startY, startTime;
-    let accumX = 0, accumY = 0;
-    let moved = false;
-    let touchRepeatTimer = null;
-
-    boardCanvas.addEventListener('touchstart', onTouchStart, { passive: false });
-    boardCanvas.addEventListener('touchmove', onTouchMove, { passive: false });
-    boardCanvas.addEventListener('touchend', onTouchEnd, { passive: false });
-    boardCanvas.addEventListener('touchcancel', onTouchEnd, { passive: false });
-
-    function onTouchStart(e) {
-        if (!gameRunning || gamePaused) return;
-        e.preventDefault();
-        const t = e.changedTouches[0];
-        touchId = t.identifier;
-        startX = t.clientX;
-        startY = t.clientY;
-        startTime = performance.now();
-        accumX = 0;
-        accumY = 0;
-        moved = false;
-    }
-
-    function onTouchMove(e) {
-        if (touchId === null || !gameRunning || gamePaused) return;
-        e.preventDefault();
-        const t = Array.from(e.changedTouches).find(tt => tt.identifier === touchId);
-        if (!t) return;
-
-        const dx = t.clientX - startX;
-        const dy = t.clientY - startY;
-
-        // Horizontal movement (cell-snapping)
-        const cellPx = BLOCK;
-        const hSteps = Math.floor(Math.abs(dx - accumX) / cellPx);
-        if (hSteps > 0) {
-            const dir = dx > accumX ? 1 : -1;
-            for (let i = 0; i < hSteps; i++) movePiece(dir, 0);
-            accumX += dir * hSteps * cellPx;
-            moved = true;
-        }
-
-        // Vertical soft drop (cell-snapping, downward only)
-        const vSteps = Math.floor(Math.abs(dy - accumY) / cellPx);
-        if (vSteps > 0 && dy > accumY) {
-            for (let i = 0; i < vSteps; i++) movePiece(0, 1);
-            accumY += vSteps * cellPx;
-            moved = true;
-        }
-        // Allow upward drag to "undo" the accumY threshold (no upward move)
-        if (dy < accumY - cellPx) {
-            accumY = dy;
-        }
-    }
-
-    function onTouchEnd(e) {
-        if (touchId === null) return;
-        e.preventDefault();
-        const t = Array.from(e.changedTouches).find(tt => tt.identifier === touchId);
-        if (!t) { touchId = null; return; }
-
-        const elapsed = performance.now() - startTime;
-        const dy = t.clientY - startY;
-
-        // Fast downward flick → hard drop
-        if (dy > 40 && elapsed > 0 && (dy / elapsed) > HARD_DROP_VEL) {
-            hardDrop();
-        }
-        // Tap (no significant movement) → rotate
-        else if (!moved && elapsed < 300 && Math.abs(dy) < 15 && Math.abs(t.clientX - startX) < 15) {
-            rotatePiece();
-        }
-
-        touchId = null;
-    }
-
     // ─── ON-SCREEN BUTTONS ───────────────────────────────────────────────────
     function setupBtn(id, action, repeatable) {
         const btn = document.getElementById(id);
