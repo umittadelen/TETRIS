@@ -21,12 +21,12 @@ const BLOCK = Math.max(14, Math.min(maxBlockW, maxBlockH));
 
 // Colors matching Python version
 const COLORS = [
-    '#add8e6', // I - light blue
+    '#00bfff', // I - light blue
     '#0000ff', // J - blue
     '#ffa500', // L - orange
     '#ffff00', // O - yellow
     '#ff0000', // S - red
-    '#e6e6fa', // T - lavender
+    '#ee35ff', // T - lavender
     '#00ff00', // Z - green
 ];
 
@@ -91,7 +91,7 @@ let score, level, linesCleared, combo, b2b;
 let lastActionRotation, pieceRotation;
 let bag;
 let dropTimer, lastTime;
-let messages;
+let messages = [];
 let gameRunning = false;
 let gamePaused = false;
 let animFrame;
@@ -187,6 +187,7 @@ function newPiece() {
 }
 
 function rotatePiece() {
+    if (lineClearAnim) return;
     const rotated = rotateCW(piece.shape);
     const newRot = (pieceRotation + 1) % 4;
     const key = `${pieceRotation}>${newRot}`;
@@ -212,6 +213,7 @@ function rotatePiece() {
 }
 
 function holdPiece() {
+    if (lineClearAnim) return;
     if (!canHold) return;
     canHold = false;
     if (heldIdx === null) {
@@ -235,6 +237,7 @@ function holdPiece() {
 }
 
 function movePiece(dx, dy) {
+    if (lineClearAnim) return false;
     if (!collides(piece.x + dx, piece.y + dy, piece.shape)) {
         piece.x += dx;
         piece.y += dy;
@@ -256,6 +259,7 @@ function movePiece(dx, dy) {
 }
 
 function hardDrop() {
+    if (lineClearAnim) return;
     let dist = 0;
     while (!collides(piece.x, piece.y + 1, piece.shape)) { piece.y++; dist++; }
     lockDelayActive = false; lockTimer = 0;
@@ -587,8 +591,11 @@ function gameLoop(ts) {
         lineClearAnim.timer += dt;
         if (lineClearAnim.timer >= lineClearAnim.total) {
             const { rows, num, lv, prevB2b } = lineClearAnim;
+            // Remove all full rows first (bottom-to-top), then add empty rows at top
             for (const r of [...rows].sort((a, b) => b - a)) {
                 grid.splice(r, 1);
+            }
+            for (let i = 0; i < rows.length; i++) {
                 grid.unshift(Array(COLS).fill(null));
             }
             // Perfect clear check (after rows removed)
@@ -682,13 +689,13 @@ document.addEventListener('keydown', e => {
     }
 
     switch (e.key) {
-        case 'ArrowUp': rotatePiece(); e.preventDefault(); break;
-        case ' ': hardDrop(); e.preventDefault(); break;
+        case 'ArrowUp': if (!e.repeat) rotatePiece(); e.preventDefault(); break;
+        case ' ': if (!e.repeat) hardDrop(); e.preventDefault(); break;
         case 'Shift':
         case 'ShiftLeft':
         case 'ShiftRight':
         case 'c':
-        case 'C': holdPiece(); e.preventDefault(); break;
+        case 'C': if (!e.repeat) holdPiece(); e.preventDefault(); break;
     }
 });
 
@@ -879,7 +886,7 @@ render();
             clearInterval(repeatId);
             repeatId = null;
             btn.classList.remove('pressed');
-            active = false;
+            // Don't reset active here — let click handler check it first
         }
 
         // Pointer events – unified touch + mouse
@@ -898,14 +905,16 @@ render();
         });
         btn.addEventListener('pointercancel', () => {
             stopRepeat();
+            active = false;
         });
 
         // Fallback click for devices that skip pointerdown
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (!active) doAction();
-            active = false;
+            // If pointerdown already fired, skip — reset flag for next time
+            if (active) { active = false; return; }
+            doAction();
         });
 
         // Block long-press context menu
