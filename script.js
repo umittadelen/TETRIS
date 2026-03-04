@@ -579,18 +579,20 @@ function render() {
     }
 
     // Floating messages
-    ctx.textAlign = 'center';
-    for (const m of messages) {
-        ctx.globalAlpha = m.alpha;
-        ctx.font = 'bold 18px Impact, Arial';
-        ctx.fillStyle = '#fff';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.strokeText(m.text, m.x, m.y);
-        ctx.fillText(m.text, m.x, m.y);
+    if (!lineClearAnim){
+        ctx.textAlign = 'center';
+        for (const m of messages) {
+            ctx.globalAlpha = m.alpha;
+            ctx.font = 'bold 18px Impact, Arial';
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.strokeText(m.text, m.x, m.y);
+            ctx.fillText(m.text, m.x, m.y);
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
     }
-    ctx.globalAlpha = 1;
-    ctx.restore();
 }
 
 function updateUI() {
