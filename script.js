@@ -767,11 +767,89 @@ function endGame() {
         highScore = score;
         localStorage.setItem('tetrisHigh', highScore);
     }
+    // Clear any save since the game is over
+    localStorage.removeItem('tetrisSave');
+    document.getElementById('load-btn').style.display = 'none';
     document.getElementById('overlay').querySelector('h1').textContent = 'GAME OVER';
     document.getElementById('final-score').style.display = 'block';
     document.getElementById('final-score').textContent = `Score: ${score}  │  Best: ${highScore}`;
     document.getElementById('start-btn').textContent = 'PLAY AGAIN';
     document.getElementById('overlay').style.display = 'flex';
+}
+
+// ─── SAVE / LOAD ──────────────────────────────────────────────────────────────
+function saveGame() {
+    if (!gameRunning) return;
+    const state = {
+        grid: grid.map(r => [...r]),
+        piece: { ...piece, shape: piece.shape.map(r => [...r]) },
+        nextIdx,
+        heldIdx,
+        canHold,
+        score,
+        level,
+        linesCleared,
+        combo,
+        b2b,
+        bag: [...bag],
+        lastActionRotation,
+        pieceRotation,
+        lockResets,
+        dropTimer,
+    };
+    localStorage.setItem('tetrisSave', JSON.stringify(state));
+    document.getElementById('load-btn').style.display = 'block';
+    const btn = document.getElementById('save-game-btn');
+    if (btn) {
+        btn.textContent = 'SAVED ✓';
+        btn.disabled = true;
+        setTimeout(() => { btn.textContent = 'SAVE GAME'; btn.disabled = false; }, 1500);
+    }
+}
+
+function loadGame() {
+    const raw = localStorage.getItem('tetrisSave');
+    if (!raw) return;
+    let state;
+    try { state = JSON.parse(raw); } catch (e) { return; }
+
+    grid = state.grid;
+    piece = state.piece;
+    nextIdx = state.nextIdx;
+    heldIdx = state.heldIdx;
+    canHold = state.canHold;
+    score = state.score;
+    level = state.level;
+    linesCleared = state.linesCleared;
+    combo = state.combo;
+    b2b = state.b2b;
+    bag = state.bag;
+    lastActionRotation = state.lastActionRotation;
+    pieceRotation = state.pieceRotation;
+    lockResets = state.lockResets;
+    dropTimer = state.dropTimer;
+
+    messages = [];
+    lastTime = null;
+    gameRunning = true;
+    gamePaused = false;
+    lockDelayActive = false;
+    lockTimer = 0;
+    lineClearAnim = null;
+    shakeTimer = 0;
+    shakeAmt = 0;
+    pieceEnterAnim = 0;
+
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('final-score').style.display = 'none';
+    document.getElementById('overlay').querySelector('h1').textContent = 'TETRIS';
+    document.getElementById('pause-overlay').style.display = 'none';
+
+    renderHold();
+    renderNext();
+    updateUI();
+    bgMusic.currentTime = 0;
+    bgMusic.play().catch(() => { });
 }
 
 document.getElementById('resume-btn').addEventListener('click', () => {
@@ -782,15 +860,20 @@ document.getElementById('new-game-btn').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'block';
     document.getElementById('new-game-btn').style.display = 'none';
     document.getElementById('resume-btn').style.display = 'none';
+    document.getElementById('save-game-btn').style.display = 'none';
 });
 
 document.getElementById('confirm-yes').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
     document.getElementById('new-game-btn').style.display = 'block';
     document.getElementById('resume-btn').style.display = 'block';
+    document.getElementById('save-game-btn').style.display = 'block';
     document.getElementById('pause-overlay').style.display = 'none';
     gamePaused = false;
     cancelAnimationFrame(animFrame);
+    // Clear save since user explicitly started a new game
+    localStorage.removeItem('tetrisSave');
+    document.getElementById('load-btn').style.display = 'none';
     initGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
@@ -799,6 +882,7 @@ document.getElementById('confirm-no').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
     document.getElementById('new-game-btn').style.display = 'block';
     document.getElementById('resume-btn').style.display = 'block';
+    document.getElementById('save-game-btn').style.display = 'block';
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
@@ -809,8 +893,21 @@ document.getElementById('start-btn').addEventListener('click', () => {
     animFrame = requestAnimationFrame(gameLoop);
 });
 
+document.getElementById('save-game-btn').addEventListener('click', () => {
+    saveGame();
+});
+
+document.getElementById('load-btn').addEventListener('click', () => {
+    loadGame();
+    animFrame = requestAnimationFrame(gameLoop);
+});
+
 // Initial render of empty board + show saved best score
 document.getElementById('best-val').textContent = highScore;
+// Show load button if a save exists
+if (localStorage.getItem('tetrisSave')) {
+    document.getElementById('load-btn').style.display = 'block';
+}
 render();
 
 // ─── MOBILE CONTROLS (BUTTONS ONLY) ─────────────────────────────────────────
@@ -819,53 +916,50 @@ render();
     function setupBtn(id, action, repeatable) {
         const btn = document.getElementById(id);
         if (!btn) return;
+        let dasTimer = null;
         let repeatId = null;
-        let active = false;
+        let capturedId = null;
 
-        function doAction() {
-            if (!gameRunning || gamePaused) return;
-            action();
-            if (repeatable) {
-                clearInterval(repeatId);
-                repeatId = setInterval(() => {
-                    if (!gameRunning || gamePaused) { clearInterval(repeatId); return; }
-                    action();
-                }, ARR);
-            }
-        }
         function stopRepeat() {
+            clearTimeout(dasTimer);
             clearInterval(repeatId);
+            dasTimer = null;
             repeatId = null;
+            capturedId = null;
             btn.classList.remove('pressed');
-            // Don't reset active here — let click handler check it first
         }
 
         // Pointer events – unified touch + mouse
         btn.addEventListener('pointerdown', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (capturedId !== null) return; // already tracking a touch
             btn.setPointerCapture(e.pointerId);
+            capturedId = e.pointerId;
             btn.classList.add('pressed');
-            active = true;
-            doAction();
+            if (!gameRunning || gamePaused) return;
+            action();
+            if (repeatable) {
+                // Mirror keyboard DAS: wait DAS ms, then repeat every ARR ms
+                dasTimer = setTimeout(() => {
+                    repeatId = setInterval(() => {
+                        if (!gameRunning || gamePaused) { stopRepeat(); return; }
+                        action();
+                    }, ARR);
+                }, DAS);
+            }
         });
+
         btn.addEventListener('pointerup', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (e.pointerId !== capturedId) return;
             stopRepeat();
-        });
-        btn.addEventListener('pointercancel', () => {
-            stopRepeat();
-            active = false;
         });
 
-        // Fallback click for devices that skip pointerdown
-        btn.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            // If pointerdown already fired, skip — reset flag for next time
-            if (active) { active = false; return; }
-            doAction();
+        btn.addEventListener('pointercancel', (e) => {
+            if (capturedId !== null && e.pointerId !== capturedId) return;
+            stopRepeat();
         });
 
         // Block long-press context menu
