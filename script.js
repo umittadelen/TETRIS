@@ -21,23 +21,47 @@ const BLOCK = Math.max(14, Math.min(maxBlockW, maxBlockH));
 
 // Colors matching Python version
 const COLORS = [
-    '#00bfff', // I - light blue
+    '#00ffff', // I - cyan
     '#0000ff', // J - blue
     '#ffa500', // L - orange
     '#ffff00', // O - yellow
     '#ff0000', // S - red
-    '#ee35ff', // T - lavender
+    '#a000f0', // T - purple
     '#00ff00', // Z - green
 ];
 
+// Pieces use SRS-standard bounding boxes so rotation centres are stable:
+//   I → 4×4,  O → 3×3,  all others → 3×3
 const SHAPES = [
-    [[1, 1, 1, 1]],               // I
-    [[1, 0, 0], [1, 1, 1]],         // J
-    [[0, 0, 1], [1, 1, 1]],         // L
-    [[1, 1], [1, 1]],             // O
-    [[0, 1, 1], [1, 1, 0]],         // S
-    [[0, 1, 0], [1, 1, 1]],         // T
-    [[1, 1, 0], [0, 1, 1]],         // Z
+    // I  (state-0: row 1 of 4-row box)
+    [[0, 0, 0, 0],
+     [1, 1, 1, 1],
+     [0, 0, 0, 0],
+     [0, 0, 0, 0]],
+    // J
+    [[1, 0, 0],
+     [1, 1, 1],
+     [0, 0, 0]],
+    // L
+    [[0, 0, 1],
+     [1, 1, 1],
+     [0, 0, 0]],
+    // O  (3×3 box, minos at cols 1-2 so at spawn x=3 they land on board cols 4-5)
+    [[0, 1, 1],
+     [0, 1, 1],
+     [0, 0, 0]],
+    // S
+    [[0, 1, 1],
+     [1, 1, 0],
+     [0, 0, 0]],
+    // T
+    [[0, 1, 0],
+     [1, 1, 1],
+     [0, 0, 0]],
+    // Z
+    [[1, 1, 0],
+     [0, 1, 1],
+     [0, 0, 0]],
 ];
 
 // NES speed table (ms per row)
@@ -47,7 +71,7 @@ const SPEED = {
     19: 33, 20: 33, 21: 33, 22: 33, 23: 33, 24: 33, 25: 33, 26: 33, 27: 33, 28: 33, 29: 17
 };
 
-// SRS kick tables
+// SRS kick tables  (dx = right, dy = down — converted from Tetris wiki which uses +y=up)
 const KICKS_JLSTZ = {
     '0>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
     '1>2': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
@@ -60,6 +84,7 @@ const KICKS_I = {
     '2>3': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
     '3>0': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
 };
+const NEXT_QUEUE_SIZE = 3;
 
 // DAS/ARR
 const DAS = 150;
@@ -82,7 +107,7 @@ const hctx = holdCanvas.getContext('2d');
 
 const nextCanvas = document.getElementById('next-canvas');
 nextCanvas.width = SIDE_W;
-nextCanvas.height = SIDE_H;
+nextCanvas.height = NEXT_QUEUE_SIZE * SIDE_H;
 const nctx = nextCanvas.getContext('2d');
 
 // Mobile mini canvases for hold/next
@@ -99,7 +124,7 @@ if (mNextCanvas) { mNextCanvas.width = M_SIDE_W; mNextCanvas.height = M_SIDE_H; 
 const mnctx = mNextCanvas ? mNextCanvas.getContext('2d') : null;
 
 // ─── GAME STATE ──────────────────────────────────────────────────────────────
-let grid, piece, nextIdx, heldIdx, canHold;
+let grid, piece, nextQueue, heldIdx, canHold;
 let score, level, linesCleared, combo, b2b;
 let lastActionRotation, pieceRotation;
 let bag;
@@ -180,14 +205,15 @@ function cellOccupied(r, c) {
 
 // ─── PIECE MANAGEMENT ────────────────────────────────────────────────────────
 function newPiece() {
+    const idx = nextQueue.shift();
+    nextQueue.push(nextFromBag());
     piece = {
-        idx: nextIdx,
-        shape: SHAPES[nextIdx].map(r => [...r]),
-        x: Math.floor(COLS / 2) - Math.floor(SHAPES[nextIdx][0].length / 2),
+        idx,
+        shape: SHAPES[idx].map(r => [...r]),
+        x: Math.floor((COLS - SHAPES[idx][0].length) / 2),
         y: 0,
         rot: 0,
     };
-    nextIdx = nextFromBag();
     canHold = true;
     lastActionRotation = false;
     pieceRotation = 0;
@@ -238,7 +264,7 @@ function holdPiece() {
         piece = {
             idx: tmp,
             shape: SHAPES[tmp].map(r => [...r]),
-            x: Math.floor(COLS / 2) - Math.floor(SHAPES[tmp][0].length / 2),
+            x: Math.floor((COLS - SHAPES[tmp][0].length) / 2),
             y: 0,
             rot: 0,
         };
@@ -262,7 +288,7 @@ function movePiece(dx, dy) {
                 if (!collides(piece.x, piece.y + 1, piece.shape)) lockDelayActive = false;
             }
         }
-        if (dy > 0) { lockDelayActive = false; lockTimer = 0; lockResets = 0; }
+        if (dy > 0) { lockDelayActive = false; lockTimer = 0; }
         return true;
     } else if (dy > 0) {
         if (!lockDelayActive) { lockDelayActive = true; lockTimer = 0; }
@@ -296,10 +322,10 @@ function detectTspin() {
     const count = corners.filter(Boolean).length;
     if (count >= 3) return 'tspin';
     const frontPairs = {
-        0: [corners[2], corners[3]],
-        1: [corners[0], corners[2]],
-        2: [corners[0], corners[1]],
-        3: [corners[1], corners[3]],
+        0: [corners[2], corners[3]], // front = bottom
+        1: [corners[1], corners[3]], // front = right
+        2: [corners[0], corners[1]], // front = top
+        3: [corners[0], corners[2]], // front = left
     };
     const [f1, f2] = frontPairs[pieceRotation];
     if (f1 && f2) return 'tspin';
@@ -487,8 +513,35 @@ function renderHold() {
     if (mhctx) drawMiniPiece(mhctx, heldIdx, mHoldCanvas.width, mHoldCanvas.height, M_MINI);
 }
 function renderNext() {
-    drawMiniPiece(nctx, nextIdx, nextCanvas.width, nextCanvas.height);
-    if (mnctx) drawMiniPiece(mnctx, nextIdx, mNextCanvas.width, mNextCanvas.height, M_MINI);
+    const w = nextCanvas.width;
+    const totalH = nextCanvas.height;
+    nctx.clearRect(0, 0, w, totalH);
+    const slotH = Math.floor(totalH / nextQueue.length);
+    nextQueue.forEach((idx, i) => {
+        const mini = i === 0 ? MINI : Math.round(MINI * 0.72);
+        const shape = SHAPES[idx];
+        const offX = Math.floor((w - shape[0].length * mini) / 2);
+        const offY = i * slotH + Math.floor((slotH - shape.length * mini) / 2);
+        for (let r = 0; r < shape.length; r++)
+            for (let c = 0; c < shape[r].length; c++)
+                if (shape[r][c])
+                    drawBlockAt(nctx, offX + c * mini, offY + r * mini, mini, COLORS[idx], 1, false);
+    });
+    if (mnctx) drawMiniPiece(mnctx, nextQueue[0], mNextCanvas.width, mNextCanvas.height, M_MINI);
+}
+
+function drawMessages() {
+    ctx.textAlign = 'center';
+    for (const m of messages) {
+        ctx.globalAlpha = m.alpha;
+        ctx.font = 'bold 18px Impact, Arial';
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(m.text, m.x, m.y);
+        ctx.fillText(m.text, m.x, m.y);
+    }
+    ctx.globalAlpha = 1;
 }
 
 function render() {
@@ -529,17 +582,7 @@ function render() {
     }
 
     if (!gameRunning || lineClearAnim) {
-        ctx.textAlign = 'center';
-        for (const m of messages) {
-            ctx.globalAlpha = m.alpha;
-            ctx.font = 'bold 18px Impact, Arial';
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
-            ctx.strokeText(m.text, m.x, m.y);
-            ctx.fillText(m.text, m.x, m.y);
-        }
-        ctx.globalAlpha = 1;
+        drawMessages();
         ctx.restore();
         return;
     }
@@ -579,25 +622,13 @@ function render() {
     }
 
     // Floating messages
-    if (!lineClearAnim){
-        ctx.textAlign = 'center';
-        for (const m of messages) {
-            ctx.globalAlpha = m.alpha;
-            ctx.font = 'bold 18px Impact, Arial';
-            ctx.fillStyle = '#fff';
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 3;
-            ctx.strokeText(m.text, m.x, m.y);
-            ctx.fillText(m.text, m.x, m.y);
-        }
-        ctx.globalAlpha = 1;
-        ctx.restore();
-    }
+    drawMessages();
+    ctx.restore();
 }
 
 function updateUI() {
     document.getElementById('score-val').textContent = score;
-    document.getElementById('level-val').textContent = level;
+    document.getElementById('level-val').textContent = level + 1;
     document.getElementById('lines-val').textContent = linesCleared;
     document.getElementById('best-val').textContent = highScore;
 }
@@ -730,7 +761,7 @@ document.addEventListener('keyup', e => {
 function initGame() {
     grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     bag = [];
-    nextIdx = nextFromBag();
+    nextQueue = Array.from({ length: NEXT_QUEUE_SIZE }, () => nextFromBag());
     heldIdx = null;
     canHold = true;
     score = 0;
@@ -783,7 +814,7 @@ function saveGame() {
     const state = {
         grid: grid.map(r => [...r]),
         piece: { ...piece, shape: piece.shape.map(r => [...r]) },
-        nextIdx,
+        nextQueue: [...nextQueue],
         heldIdx,
         canHold,
         score,
@@ -815,7 +846,7 @@ function loadGame() {
 
     grid = state.grid;
     piece = state.piece;
-    nextIdx = state.nextIdx;
+    nextQueue = state.nextQueue;
     heldIdx = state.heldIdx;
     canHold = state.canHold;
     score = state.score;

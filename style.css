@@ -199,7 +199,6 @@ canvas {
 .touch-btn {
     width: 52px;
     height: 52px;
-    border: none;
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 10px;
     background: rgba(255, 255, 255, 0.12);
