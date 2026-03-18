@@ -1,3 +1,4 @@
+
 // Detect touch capability and add class for CSS
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     document.body.classList.add('has-touch');
@@ -148,8 +149,12 @@ let shakeTimer = 0, shakeAmt = 0;
 // Piece enter animation
 let pieceEnterAnim = 0; // ms remaining
 
-// High score
+// High score (single best score for the "Best" display)
 let highScore = parseInt(localStorage.getItem('tetrisHigh') || '0');
+
+// High scores table data
+let highScores = [];
+const MAX_HIGH_SCORES = 10; // Limit the number of high scores in the table
 
 // Key state
 const keys = {};
@@ -357,22 +362,33 @@ function clearLines(tspin) {
 
     let actionScore = 0, msg = '', isDifficult = false;
 
+    // Prioritize T-spin detection over TETRIS
     if (tspin === 'tspin') {
+        // T-spin line clears (including T-spin triple)
         const sc = { 0: 400, 1: 800, 2: 1200, 3: 1600 };
         const ms = { 0: 'T-SPIN!', 1: 'T-SPIN SINGLE', 2: 'T-SPIN DOUBLE', 3: 'T-SPIN TRIPLE' };
         isDifficult = true;
         actionScore = (sc[num] || 0) * lv;
         msg = ms[num] || 'T-SPIN';
     } else if (tspin === 'mini') {
+        // Mini T-spin
         const sc = { 0: 100, 1: 200, 2: 400 };
         const ms = { 0: 'MINI T-SPIN', 1: 'MINI T-SPIN SINGLE', 2: 'MINI T-SPIN DOUBLE' };
         isDifficult = num > 0;
         actionScore = (sc[num] || 0) * lv;
         msg = ms[num] || 'MINI T-SPIN';
+    } else if (num === 4) {
+        // Only treat as TETRIS if not a T-spin
+        const sc = { 4: 800 };
+        const ms = { 4: 'TETRIS!' };
+        isDifficult = true;
+        actionScore = (sc[num] || 0) * lv;
+        msg = ms[num] || '';
     } else {
-        const sc = { 1: 100, 2: 300, 3: 500, 4: 800 };
-        const ms = { 1: 'SINGLE', 2: 'DOUBLE', 3: 'TRIPLE', 4: 'TETRIS!' };
-        isDifficult = num === 4;
+        // Singles, doubles, triples
+        const sc = { 1: 100, 2: 300, 3: 500 };
+        const ms = { 1: 'SINGLE', 2: 'DOUBLE', 3: 'TRIPLE' };
+        isDifficult = false;
         actionScore = (sc[num] || 0) * lv;
         msg = ms[num] || '';
     }
@@ -630,7 +646,8 @@ function updateUI() {
     document.getElementById('score-val').textContent = score;
     document.getElementById('level-val').textContent = level + 1;
     document.getElementById('lines-val').textContent = linesCleared;
-    document.getElementById('best-val').textContent = highScore;
+    // Best score now comes from the top of the highScores list
+    document.getElementById('best-val').textContent = highScores.length > 0 ? highScores[0].score : 0;
 }
 
 // ─── GAME LOOP ───────────────────────────────────────────────────────────────
@@ -757,6 +774,58 @@ document.addEventListener('keyup', e => {
     if (e.key in keyHeld) keyHeld[e.key] = false;
 });
 
+// ─── HIGH SCORE MANAGEMENT ───────────────────────────────────────────────────
+function loadHighScores() {
+    const rawScores = localStorage.getItem('tetrisHighScores');
+    if (rawScores) {
+        try {
+            highScores = JSON.parse(rawScores);
+            // Ensure scores are numbers and sort them
+            highScores = highScores
+                .map(s => ({ name: s.name, score: parseInt(s.score) }))
+                .filter(s => !isNaN(s.score))
+                .sort((a, b) => b.score - a.score);
+            // Trim if there are too many (e.g. if MAX_HIGH_SCORES changed)
+            if (highScores.length > MAX_HIGH_SCORES) {
+                highScores = highScores.slice(0, MAX_HIGH_SCORES);
+            }
+        } catch (e) {
+            console.error("Failed to parse high scores from localStorage", e);
+            highScores = [];
+        }
+    }
+    // Update the single 'highScore' value from the top of the list
+    highScore = highScores.length > 0 ? highScores[0].score : 0;
+    localStorage.setItem('tetrisHigh', highScore); // Keep original best score in sync if needed
+}
+
+function saveHighScores() {
+    localStorage.setItem('tetrisHighScores', JSON.stringify(highScores));
+}
+
+function displayHighScores() {
+    const highscoresList = document.getElementById('highscores-list');
+    highscoresList.innerHTML = ''; // Clear previous entries
+    
+    if (highScores.length === 0) {
+        highscoresList.innerHTML = '<li style="text-align:center; padding: 20px;">No high scores yet!</li>';
+        return;
+    }
+
+    highScores.forEach((entry, index) => {
+        const li = document.createElement('li');
+        li.className = 'highscore-item';
+        
+        // We create three distinct spans so we can align each column individually
+        li.innerHTML = `
+            <span class="hs-rank">${index + 1}.</span>
+            <span class="hs-name">${entry.name}</span>
+            <span class="hs-score">${entry.score}</span>
+        `;
+        highscoresList.appendChild(li);
+    });
+}
+
 // ─── INIT / RESTART ──────────────────────────────────────────────────────────
 function initGame() {
     grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
@@ -794,18 +863,53 @@ function endGame() {
     cancelAnimationFrame(animFrame);
     bgMusic.pause();
     bgMusic.currentTime = 0;
-    if (score > highScore) {
-        highScore = score;
-        localStorage.setItem('tetrisHigh', highScore);
+
+    // Check for new high score for the table
+    const highscoresEntryDiv = document.getElementById('new-highscore-entry');
+    const playerNameInput = document.getElementById('player-name-input');
+    
+    // Get the previous best score before we process the current one
+    const previousBest = highScores.length > 0 ? highScores[0].score : 0;
+
+    let isNewHighScoreForTable = false;
+    // Check if score qualifies for top 10
+    if (highScores.length < MAX_HIGH_SCORES || score > highScores[highScores.length - 1].score) {
+        isNewHighScoreForTable = true;
+        highscoresEntryDiv.style.display = 'block';
+        playerNameInput.value = '';
+        playerNameInput.focus();
+        document.getElementById('start-btn').style.display = 'none';
+        document.getElementById('load-btn').style.display = 'none';
+    } else {
+        highscoresEntryDiv.style.display = 'none';
     }
-    // Clear any save since the game is over
-    localStorage.removeItem('tetrisSave');
-    document.getElementById('load-btn').style.display = 'none';
+
+    // --- UPDATED LOGIC HERE ---
+    const finalScoreElement = document.getElementById('final-score');
+    finalScoreElement.style.display = 'block';
+
+    if (score > previousBest) {
+        // New All-Time Best!
+        finalScoreElement.innerHTML = `Score: ${score}  │  <span>New Best: ${score}</span>`;
+    } else {
+        // Just a regular game over
+        finalScoreElement.textContent = `Score: ${score}  │  Best: ${previousBest}`;
+    }
+    // --------------------------
+
     document.getElementById('overlay').querySelector('h1').textContent = 'GAME OVER';
-    document.getElementById('final-score').style.display = 'block';
-    document.getElementById('final-score').textContent = `Score: ${score}  │  Best: ${highScore}`;
     document.getElementById('start-btn').textContent = 'PLAY AGAIN';
     document.getElementById('overlay').style.display = 'flex';
+
+    document.getElementById('highscores-display').style.display = 'block';
+    displayHighScores();
+
+    localStorage.removeItem('tetrisSave');
+    document.getElementById('load-btn').style.display = 'none';
+
+    if (!isNewHighScoreForTable) {
+        document.getElementById('start-btn').style.display = 'block';
+    }
 }
 
 // ─── SAVE / LOAD ──────────────────────────────────────────────────────────────
@@ -875,6 +979,8 @@ function loadGame() {
     document.getElementById('final-score').style.display = 'none';
     document.getElementById('overlay').querySelector('h1').textContent = 'TETRIS';
     document.getElementById('pause-overlay').style.display = 'none';
+    document.getElementById('highscores-display').style.display = 'none'; // Hide high scores when loading game
+    document.getElementById('new-highscore-entry').style.display = 'none'; // Hide name input
 
     renderHold();
     renderNext();
@@ -920,6 +1026,8 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('final-score').style.display = 'none';
     document.getElementById('overlay').querySelector('h1').textContent = 'TETRIS';
+    document.getElementById('new-highscore-entry').style.display = 'none'; // Hide high score name input
+    document.getElementById('highscores-display').style.display = 'none'; // Hide high scores when game starts
     initGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
@@ -932,6 +1040,60 @@ document.getElementById('load-btn').addEventListener('click', () => {
     loadGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
+
+// Event listener for submitting player name with duplicate/case-insensitive check
+document.getElementById('submit-name-btn').addEventListener('click', () => {
+    const playerNameInput = document.getElementById('player-name-input');
+    let playerName = playerNameInput.value.trim();
+    
+    if (!playerName) {
+        playerName = 'Anonymous'; 
+    }
+    if (playerName.length > 10) playerName = playerName.substring(0, 10);
+
+    // 1. Check for case-insensitive duplicate
+    const normalizedName = playerName.toLowerCase();
+    const existingEntryIndex = highScores.findIndex(s => s.name.toLowerCase() === normalizedName);
+
+    if (existingEntryIndex !== -1) {
+        // Name exists: Only update if the new score is strictly higher
+        if (score > highScores[existingEntryIndex].score) {
+            highScores[existingEntryIndex].score = score;
+            highScores[existingEntryIndex].name = playerName; // Update casing to latest entry
+        } else {
+            // New score is lower or equal, don't do anything to the list
+            // Just move on to showing the table
+            spawnMessage("Personal best not beaten");
+        }
+    } else {
+        // Name does not exist: Add as new entry
+        highScores.push({ name: playerName, score: score });
+    }
+
+    // 2. Sort and Trim
+    highScores.sort((a, b) => b.score - a.score);
+    if (highScores.length > MAX_HIGH_SCORES) {
+        highScores = highScores.slice(0, MAX_HIGH_SCORES);
+    }
+
+    // 3. Save and UI update
+    saveHighScores();
+    displayHighScores();
+
+    document.getElementById('new-highscore-entry').style.display = 'none';
+    document.getElementById('start-btn').style.display = 'block';
+    if (localStorage.getItem('tetrisSave')) {
+        document.getElementById('load-btn').style.display = 'block';
+    }
+    updateUI();
+});
+
+// Initial setup on page load
+loadHighScores(); // Load scores from localStorage
+displayHighScores(); // Populate the high score list on the overlay
+
+// Ensure the #highscores-display is visible when the #overlay is initially shown
+document.getElementById('highscores-display').style.display = 'block';
 
 // Initial render of empty board + show saved best score
 document.getElementById('best-val').textContent = highScore;

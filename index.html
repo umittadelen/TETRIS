@@ -55,11 +55,22 @@
 </div>
 
 <div id="overlay">
-  <h1>TETRIS</h1>
+  <h1><span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span></h1>
   <div class="sub">ALL IN EDITION</div>
   <div class="final-score" id="final-score" style="display:none"></div>
   <button id="start-btn">START GAME</button>
   <button id="load-btn" style="display:none; margin-top:10px;">LOAD SAVED GAME</button>
+
+  <!-- High Scores Display -->
+  <div id="highscores-display" style="display:none;">
+      <h3 style="margin-top:30px; margin-bottom:15px; color:#fff;">HIGH SCORES</h3>
+      <ol id="highscores-list" class="highscores-list"></ol>
+      <div id="new-highscore-entry" style="display:none; margin-top:20px; text-align:center;">
+          <p style="margin-bottom:10px; color:#fff;">You got a High Score! Enter your name:</p>
+          <input type="text" id="player-name-input" maxlength="10" placeholder="Your Name" class="player-name-input">
+          <button id="submit-name-btn" class="submit-name-btn">Submit</button>
+      </div>
+  </div>
 </div>
 
 <div id="pause-overlay">

@@ -85,10 +85,16 @@ canvas {
 
 #overlay h1 {
     font-size: 48px;
-    color: #fff;
     letter-spacing: 4px;
     margin-bottom: 10px;
 }
+
+#overlay h1 span:nth-child(1) { color: #ff0000; }
+#overlay h1 span:nth-child(2) { color: #ffa500; }
+#overlay h1 span:nth-child(3) { color: #ffff00; }
+#overlay h1 span:nth-child(4) { color: #00ff00; }
+#overlay h1 span:nth-child(5) { color: #00ffff; }
+#overlay h1 span:nth-child(6) { color: #a000f0; }
 
 #overlay .sub {
     font-size: 16px;
@@ -344,4 +350,98 @@ body.has-touch #mobile-top-bar {
 
 body.has-touch .controls-hint {
     display: none;
+}
+
+/* High Scores Styling */
+/* High Score Table - Grid Alignment */
+#highscores-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px auto 0;
+    width: 100%;
+}
+
+.highscore-item {
+    display: grid;
+    /* Column 1 (Rank): 35px fixed */
+    /* Column 2 (Name): Takes all remaining space */
+    /* Column 3 (Score): Sized to its content */
+    grid-template-columns: 35px 1fr auto;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 16px;
+}
+
+.hs-rank {
+    color: #888; /* Dim the rank number slightly */
+    font-family: monospace;
+    text-align: left;
+}
+
+.hs-name {
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 10px;
+    color: #fff;
+}
+
+.hs-score {
+    font-family: 'DSEG7Classic', monospace;
+    color: #ffd700; /* Gold */
+    text-align: right;
+    font-weight: bold;
+}
+
+/* Optional: Highlight the top 3 */
+.highscore-item:nth-child(1) .hs-rank, 
+.highscore-item:nth-child(1) .hs-name { color: #ffd700; font-weight: bold; }
+.highscore-item:nth-child(2) .hs-rank, 
+.highscore-item:nth-child(2) .hs-name { color: #c0c0c0; } /* Silver */
+.highscore-item:nth-child(3) .hs-rank, 
+.highscore-item:nth-child(3) .hs-name { color: #cd7f32; } /* Bronze */
+
+.highscores-list li {
+    font-family: monospace; /* Use a monospaced font for alignment */
+    padding-left: 0.5em; /* indent for the number */
+    margin-bottom: 2px;
+}
+
+.highscores-list li:first-child {
+    color: #00ddff; /* Gold for the top score */
+    font-size: 1.1em;
+}
+
+.player-name-input {
+    padding: 8px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    width: 150px;
+    background: #333;
+    color: #fff;
+    outline: none;
+}
+
+.player-name-input::placeholder {
+    color: #aaa;
+}
+
+.submit-name-btn {
+    margin-left: 10px;
+    padding: 8px 15px;
+    font-size: 16px;
+    background: #4CAF50; /* Green submit button */
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.submit-name-btn:hover {
+    background: #45a049;
 }
