@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage Scores</title>
+    <style>
+        body { background: #0a0a12; color: #d0d0ff; font-family: monospace; padding: 40px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; box-sizing: border-box; }
+        h1 { color: #f0c040; letter-spacing: 4px; font-size: 18px; margin-bottom: 24px; }
+        table { border-collapse: collapse; width: 360px; }
+        th { text-align: left; font-size: 10px; letter-spacing: 2px; color: #5a5a8a; padding: 6px 12px; border-bottom: 1px solid #3a3a5c; }
+        td { padding: 8px 12px; border-bottom: 1px solid #1e1e30; font-size: 13px; }
+        td:last-child { text-align: right; }
+        button.del { background: #e04040; color: #fff; border: none; padding: 4px 10px; cursor: pointer; font-family: monospace; font-size: 11px; letter-spacing: 1px; }
+        button.del:hover { background: #ff6060; }
+        #status { margin-top: 20px; font-size: 11px; color: #f0c040; letter-spacing: 1px; min-height: 16px; }
+        #clear-all { margin-top: 24px; background: #3a3a5c; color: #d0d0ff; border: 1px solid #5a5a8a; padding: 8px 20px; cursor: pointer; font-family: monospace; font-size: 11px; letter-spacing: 2px; }
+        #clear-all:hover { background: #e04040; color: #fff; border-color: #e04040; }
+        #back { display: block; margin-bottom: 32px; font-size: 11px; letter-spacing: 2px; color: #5a5a8a; text-decoration: none; text-transform: uppercase; }
+        #back:hover { color: #d0d0ff; }
+        #back { display: block; margin-bottom: 32px; font-size: 11px; letter-spacing: 2px; color: #5a5a8a; text-decoration: none; text-transform: uppercase; }
+        #back:hover { color: #d0d0ff; }
+    </style>
+</head>
+<body>
+    <a href="index.html" id="back">← Back to game</a>
+    <h1>SCOREBOARD MANAGER</h1>
+    <table>
+        <thead><tr><th>#</th><th>NAME</th><th>SCORE</th><th></th></tr></thead>
+        <tbody id="scores-body"></tbody>
+    </table>
+    <div id="status"></div>
+    <button id="clear-all">CLEAR ALL SCORES</button>
+
+    <script>
+        const KEY = 'tetrisHighScores';
+
+        function load() {
+            try { return JSON.parse(localStorage.getItem(KEY) || '[]'); }
+            catch { return []; }
+        }
+
+        function save(scores) {
+            localStorage.setItem(KEY, JSON.stringify(scores));
+            // keep the single best in sync
+            localStorage.setItem('tetrisHigh', scores.length > 0 ? scores[0].score : 0);
+        }
+
+        function render() {
+            const scores = load();
+            const tbody = document.getElementById('scores-body');
+            tbody.innerHTML = '';
+            if (scores.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="color:#5a5a8a;text-align:center;padding:20px;">No scores yet.</td></tr>';
+                return;
+            }
+            scores.forEach((entry, i) => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="color:#5a5a8a">${i + 1}.</td>
+                    <td>${entry.name}</td>
+                    <td style="color:#f0c040;font-family:'Courier New',monospace">${entry.score}</td>
+                    <td><button class="del" data-index="${i}">DELETE</button></td>`;
+                tbody.appendChild(tr);
+            });
+        }
+
+        document.getElementById('scores-body').addEventListener('click', e => {
+            if (!e.target.classList.contains('del')) return;
+            const i = parseInt(e.target.dataset.index);
+            const scores = load();
+            const removed = scores.splice(i, 1)[0];
+            save(scores);
+            document.getElementById('status').textContent = `Deleted: ${removed.name} (${removed.score})`;
+            render();
+        });
+
+        document.getElementById('clear-all').addEventListener('click', () => {
+            if (!confirm('Delete ALL scores?')) return;
+            save([]);
+            document.getElementById('status').textContent = 'All scores cleared.';
+            render();
+        });
+
+        render();
+    </script>
+</body>
+</html>

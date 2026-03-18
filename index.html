@@ -15,8 +15,8 @@
 		<link rel="icon"
 			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='4' width='12' height='12' fill='%2300f' rx='1'/><rect x='16' y='4' width='12' height='12' fill='%23ff0' rx='1'/><rect x='4' y='16' width='12' height='12' fill='%23f00' rx='1'/><rect x='16' y='16' width='12' height='12' fill='%230f0' rx='1'/></svg>">
 		<title>Tetris</title>
-		<link rel="preload" href="fonts/Inter.ttf" as="font" type="font/truetype" crossorigin>
-		<link rel="preload" href="fonts/DSEG7ClassicMini-Regular.ttf" as="font" type="font/truetype" crossorigin>
+		<link rel="preload" href="fonts/Inter.ttf" as="font" crossorigin>
+		<link rel="preload" href="fonts/DSEG7ClassicMini-Regular.ttf" as="font" crossorigin>
 		<link rel="stylesheet" href="style.css">
 	</head>
 
@@ -69,6 +69,7 @@
 			<div id="highscores-display" style="display:none;">
 				<h3 style="margin-top:30px; margin-bottom:15px; color:#fff;">HIGH SCORES</h3>
 				<ol id="highscores-list" class="highscores-list"></ol>
+				<a href="manage-scores.html" id="manage-scores-link">manage scores</a>
 				<div id="new-highscore-entry" style="display:none;">
 					<p>You got a High Score! Enter your name:</p>
 					<div>
@@ -82,8 +83,15 @@
 		<div id="pause-overlay">
 			<h2>PAUSED</h2>
 			<p>Press ESC to resume</p>
-			<button id="resume-btn">RESUME</button>
-			<button id="new-game-btn">NEW GAME</button>
+			<div id="pause-main-btns">
+				<button id="resume-btn">RESUME</button>
+				<button id="mute-btn">
+					<svg id="mute-icon-on" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+					<svg id="mute-icon-off" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+					SOUND ON
+				</button>
+				<button id="new-game-btn">NEW GAME</button>
+			</div>
 
 			<!-- Confirmation panel -->
 			<div id="confirm-panel" style="display:none; margin-top:20px; text-align:center;">
@@ -98,9 +106,7 @@
 		</div>
 
 		<div class="controls-hint" id="desktop-controls-hint">
-			← → Move &nbsp;|&nbsp; ↑ Rotate &nbsp;|&nbsp; ↓ Soft Drop &nbsp;|&nbsp; Space Hard Drop &nbsp;|&nbsp; Shift / C
-			Hold
-			&nbsp;|&nbsp; Esc Pause
+			← → / A D Move &nbsp;|&nbsp; ↑ / W Rotate &nbsp;|&nbsp; ↓ / S Soft Drop &nbsp;|&nbsp; Space Hard Drop &nbsp;|&nbsp; Shift / C Hold &nbsp;|&nbsp; Esc Pause
 		</div>
 
 		<!-- Mobile top bar (hold, score/level, next + pause) -->

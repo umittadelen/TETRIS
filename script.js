@@ -4,11 +4,12 @@ if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     document.body.classList.add('has-touch');
 }
 const bgMusic = document.getElementById('bg-music');
-bgMusic.volume = 0.5;
+bgMusic.volume = 0.4;
+let isMuted = false;
 
-function playSound(src) {
+function playSound(src, volume = 1.0) {
     const a = new Audio(src);
-    a.volume = 1.0;
+    a.volume = volume;
     a.play().catch(() => {});
 }
 
@@ -168,13 +169,13 @@ let highScore = parseInt(localStorage.getItem('tetrisHigh') || '0');
 
 // High scores table data
 let highScores = [];
-const MAX_HIGH_SCORES = 10; // Limit the number of high scores in the table
+const MAX_HIGH_SCORES = 6; // Limit the number of high scores in the table
 
 // Key state
 const keys = {};
-const keyHeld = { ArrowLeft: false, ArrowRight: false, ArrowDown: false };
-const keyPress = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0 };
-const keyRepeat = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0 };
+const keyHeld = { ArrowLeft: false, ArrowRight: false, ArrowDown: false, a: false, d: false, s: false };
+const keyPress = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0, a: 0, d: 0, s: 0 };
+const keyRepeat = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0, a: 0, d: 0, s: 0 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function getSpeed() {
@@ -330,10 +331,11 @@ function hardDrop() {
                 if (piece.shape[r][c])
                     for (let dy = 0; dy < dist; dy++)
                         cells.push({ x: piece.x + c, y: startY + r + dy });
-        hardDropTrail = { cells, color: COLORS[piece.idx], timer: 0, total: 120 };
+        hardDropTrail = { cells, color: COLORS[piece.idx], timer: 0, total: 60 };
     }
     lockDelayActive = false; lockTimer = 0;
     lockPiece(dist, true);
+    playSound('./sounds/hardDrop.mp3');
 }
 
 function ghostY() {
@@ -456,7 +458,7 @@ function clearLines(tspin) {
         lineClearAnim = { rows: full, timer: 0, total: 300, num, lv, prevB2b };
         linesCleared += num;
         const newLevel = Math.floor(linesCleared / 10);
-        if (newLevel !== level) { level = newLevel; playSound('./sounds/level-up.mp3'); lv = level + 1; }
+        if (newLevel !== level) { level = newLevel; playSound('./sounds/levelUp.mp3'); lv = level + 1; }
         updateUI();
         return true; // caller must NOT call newPiece yet
     }
@@ -625,7 +627,7 @@ function render() {
     // Hard drop trail
     if (hardDropTrail) {
         const t = hardDropTrail.timer / hardDropTrail.total;
-        const alpha = (1 - t) * 0.45;
+        const alpha = t < 0.2 ? (t / 0.2) * 0.3 : (1 - t) * 0.3;
         ctx.globalAlpha = alpha;
         ctx.fillStyle = hardDropTrail.color;
         for (const cell of hardDropTrail.cells) {
@@ -810,13 +812,13 @@ function gameLoop(ts) {
 
         // DAS/ARR
         const now = ts;
-        for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowDown']) {
+        for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'a', 'd', 's']) {
             if (keyHeld[key]) {
                 if (now - keyPress[key] >= DAS && now - keyRepeat[key] >= ARR) {
                     keyRepeat[key] = now;
-                    if (key === 'ArrowLeft') movePiece(-1, 0);
-                    if (key === 'ArrowRight') movePiece(1, 0);
-                    if (key === 'ArrowDown') movePiece(0, 1);
+                    if (key === 'ArrowLeft' || key === 'a') movePiece(-1, 0);
+                    if (key === 'ArrowRight' || key === 'd') movePiece(1, 0);
+                    if (key === 'ArrowDown' || key === 's') movePiece(0, 1);
                 }
             }
         }
@@ -867,8 +869,7 @@ function togglePause() {
         po.style.display = 'none';
         // Reset confirm state
         document.getElementById('confirm-panel').style.display = 'none';
-        document.getElementById('new-game-btn').style.display = 'block';
-        document.getElementById('resume-btn').style.display = 'block';
+        document.getElementById('pause-main-btns').style.display = '';
         lastTime = null;
         bgMusic.play().catch(() => { });
         animFrame = requestAnimationFrame(gameLoop);
@@ -880,18 +881,19 @@ document.addEventListener('keydown', e => {
     if (!gameRunning || gamePaused) return;
     const now = performance.now();
 
-    if (['ArrowLeft', 'ArrowRight', 'ArrowDown'].includes(e.key) && !keyHeld[e.key]) {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowDown', 'a', 'd', 's'].includes(e.key) && !keyHeld[e.key]) {
         keyHeld[e.key] = true;
         keyPress[e.key] = now;
         keyRepeat[e.key] = now;
-        if (e.key === 'ArrowLeft') { movePiece(-1, 0); e.preventDefault(); }
-        if (e.key === 'ArrowRight') { movePiece(1, 0); e.preventDefault(); }
-        if (e.key === 'ArrowDown') { movePiece(0, 1); e.preventDefault(); }
+        if (e.key === 'ArrowLeft' || e.key === 'a') { movePiece(-1, 0); e.preventDefault(); }
+        if (e.key === 'ArrowRight' || e.key === 'd') { movePiece(1, 0); e.preventDefault(); }
+        if (e.key === 'ArrowDown' || e.key === 's') { movePiece(0, 1); e.preventDefault(); }
         return;
     }
 
     switch (e.key) {
-        case 'ArrowUp': if (!e.repeat) rotatePiece(); e.preventDefault(); break;
+        case 'ArrowUp':
+        case 'w': if (!e.repeat) rotatePiece(); e.preventDefault(); break;
         case ' ': if (!e.repeat) hardDrop(); e.preventDefault(); break;
         case 'Shift':
         case 'ShiftLeft':
@@ -1058,14 +1060,12 @@ document.getElementById('resume-btn').addEventListener('click', () => {
 
 document.getElementById('new-game-btn').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'block';
-    document.getElementById('new-game-btn').style.display = 'none';
-    document.getElementById('resume-btn').style.display = 'none';
+    document.getElementById('pause-main-btns').style.display = 'none';
 });
 
 document.getElementById('confirm-yes').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
-    document.getElementById('new-game-btn').style.display = 'block';
-    document.getElementById('resume-btn').style.display = 'block';
+    document.getElementById('pause-main-btns').style.display = '';
     document.getElementById('pause-overlay').style.display = 'none';
     gamePaused = false;
     cancelAnimationFrame(animFrame);
@@ -1075,8 +1075,16 @@ document.getElementById('confirm-yes').addEventListener('click', () => {
 
 document.getElementById('confirm-no').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
-    document.getElementById('new-game-btn').style.display = 'block';
-    document.getElementById('resume-btn').style.display = 'block';
+    document.getElementById('pause-main-btns').style.display = '';
+});
+
+document.getElementById('mute-btn').addEventListener('click', () => {
+    isMuted = !isMuted;
+    bgMusic.muted = isMuted;
+    document.getElementById('mute-icon-on').style.display = isMuted ? 'none' : '';
+    document.getElementById('mute-icon-off').style.display = isMuted ? '' : 'none';
+    document.getElementById('mute-btn').lastChild.textContent = isMuted ? 'SOUND OFF' : 'SOUND ON';
+    document.getElementById('mute-btn').classList.toggle('muted', isMuted);
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
