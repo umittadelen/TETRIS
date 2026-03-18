@@ -1,10 +1,16 @@
-
+﻿
 // Detect touch capability and add class for CSS
 if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
     document.body.classList.add('has-touch');
 }
 const bgMusic = document.getElementById('bg-music');
 bgMusic.volume = 0.5;
+
+function playSound(src) {
+    const a = new Audio(src);
+    a.volume = 1.0;
+    a.play().catch(() => {});
+}
 
 // ─── CONFIG ──────────────────────────────────────────────────────────────────
 const COLS = 10;
@@ -295,6 +301,7 @@ function movePiece(dx, dy) {
         piece.y += dy;
         if (dx !== 0) {
             lastActionRotation = false;
+            playSound('./sounds/move.mp3');
             if (lockDelayActive && lockResets < MAX_LOCK_RESETS) {
                 lockTimer = 0;
                 lockResets++;
@@ -381,7 +388,7 @@ function clearLines(tspin) {
     for (let r = 0; r < ROWS; r++)
         if (grid[r].every(c => c !== null)) full.push(r);
     const num = full.length;
-    const lv = level + 1;
+    let lv = level + 1;
     const prevB2b = b2b;
 
     let actionScore = 0, msg = '', isDifficult = false;
@@ -422,7 +429,7 @@ function clearLines(tspin) {
             actionScore = Math.floor(actionScore * 1.5);
             msg += ' B2B!';
         }
-        if (isDifficult) b2b = true;
+        if (isDifficult && num > 0) b2b = true;
         else if (num > 0) b2b = false;
 
         score += actionScore;
@@ -445,10 +452,11 @@ function clearLines(tspin) {
         // Shake on big clears
         if (num === 4 || tspin === 'tspin') triggerShake(num === 4 ? 8 : 5);
         // Start animation – actual row removal deferred to game loop
+        playSound('./sounds/clear.mp3');
         lineClearAnim = { rows: full, timer: 0, total: 300, num, lv, prevB2b };
         linesCleared += num;
         const newLevel = Math.floor(linesCleared / 10);
-        if (newLevel !== level) level = newLevel;
+        if (newLevel !== level) { level = newLevel; playSound('./sounds/level-up.mp3'); lv = level + 1; }
         updateUI();
         return true; // caller must NOT call newPiece yet
     }
@@ -494,7 +502,7 @@ function drawBlockAt(context, px, py, S, color, alpha, outlineOnly) {
         return;
     }
 
-    const B = Math.max(1, Math.floor(S * 0.18)); // bevel thickness
+    const B = Math.max(1, Math.floor(S * 0.1)); // bevel thickness
 
     // 1. Dark outer border (1px gap from edge)
     context.fillStyle = 'rgba(0,0,0,0.7)';
@@ -505,14 +513,14 @@ function drawBlockAt(context, px, py, S, color, alpha, outlineOnly) {
     context.fillRect(px + 1, py + 1, S - 2, S - 2);
 
     // 3. Top-left bright bevel
-    context.fillStyle = shadeColor(color, 0.5);
+    context.fillStyle = shadeColor(color, 0.7);
     // top strip
     context.fillRect(px + 1, py + 1, S - 2, B);
     // left strip
     context.fillRect(px + 1, py + 1 + B, B, S - 2 - B);
 
     // 4. Bottom-right dark bevel
-    context.fillStyle = shadeColor(color, -0.4);
+    context.fillStyle = shadeColor(color, -0.35);
     // bottom strip
     context.fillRect(px + 1, py + S - 1 - B, S - 2, B);
     // right strip
@@ -520,12 +528,12 @@ function drawBlockAt(context, px, py, S, color, alpha, outlineOnly) {
 
     // 5. NES-style inner face — slightly desaturated center square
     const inner = B + 1;
-    context.fillStyle = shadeColor(color, -0.12);
+    context.fillStyle = shadeColor(color, 0.05);
     context.fillRect(px + inner, py + inner, S - inner * 2, S - inner * 2);
 
     // 6. Small bright specular dot — top-left corner of inner face
-    const dotS = Math.max(2, Math.floor(S * 0.18));
-    context.fillStyle = shadeColor(color, 0.65);
+    const dotS = Math.max(1, Math.floor(S * 0.12));
+    context.fillStyle = shadeColor(color, 0.7);
     context.fillRect(px + inner, py + inner, dotS, dotS);
 
     context.globalAlpha = 1;
@@ -939,12 +947,10 @@ function displayHighScores() {
         const li = document.createElement('li');
         li.className = 'highscore-item';
         
-        // We create three distinct spans so we can align each column individually
-        li.innerHTML = `
-            <span class="hs-rank">${index + 1}.</span>
-            <span class="hs-name">${entry.name}</span>
-            <span class="hs-score">${entry.score}</span>
-        `;
+        const rank = document.createElement('span'); rank.className = 'hs-rank'; rank.textContent = (index + 1) + '.';
+        const ename = document.createElement('span'); ename.className = 'hs-name'; ename.textContent = entry.name;
+        const esc = document.createElement('span'); esc.className = 'hs-score'; esc.textContent = entry.score;
+        li.append(rank, ename, esc);
         highscoresList.appendChild(li);
     });
 }
@@ -1004,7 +1010,6 @@ function endGame() {
         playerNameInput.value = '';
         playerNameInput.focus();
         document.getElementById('start-btn').style.display = 'none';
-        document.getElementById('load-btn').style.display = 'none';
     } else {
         highscoresEntryDiv.style.display = 'none';
     }
@@ -1013,10 +1018,15 @@ function endGame() {
     const finalScoreElement = document.getElementById('final-score');
     finalScoreElement.style.display = 'block';
 
+    finalScoreElement.textContent = '';
+    const makeNum = v => { const s = document.createElement('span'); s.className = 'num'; s.textContent = v; return s; };
+    const scoreLabel = document.createTextNode('Score: ');
     if (score > previousBest) {
-        finalScoreElement.innerHTML = `Score: <span class="num">${score}</span>  │  <span>New Best: <span class="num">${score}</span></span>`;
+        const bestSpan = document.createElement('span');
+        bestSpan.append(document.createTextNode('New Best: '), makeNum(score));
+        finalScoreElement.append(scoreLabel, makeNum(score), document.createTextNode('  │  '), bestSpan);
     } else {
-        finalScoreElement.innerHTML = `Score: <span class="num">${score}</span>  │  Best: <span class="num">${previousBest}</span>`;
+        finalScoreElement.append(scoreLabel, makeNum(score), document.createTextNode('  │  Best: '), makeNum(previousBest));
     }
     // --------------------------
 
@@ -1031,95 +1041,15 @@ function endGame() {
         const btns = Array.from(document.querySelectorAll('#overlay button')).filter(b => b.style.display !== 'none');
         gsap.fromTo(h1,  { scale: 1.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(2)' });
         if (fs)           gsap.fromTo(fs,   { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, delay: 0.25, ease: 'power2.out' });
-        if (btns.length)  gsap.fromTo(btns, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, delay: 0.4, stagger: 0.08, ease: 'power2.out' });
+        if (btns.length)  gsap.fromTo(btns, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, delay: 0.4, stagger: 0.08, ease: 'power2.out', clearProps: 'transform' });
     }
 
     document.getElementById('highscores-display').style.display = 'block';
     displayHighScores();
 
-    localStorage.removeItem('tetrisSave');
-    document.getElementById('load-btn').style.display = 'none';
-
     if (!isNewHighScoreForTable) {
         document.getElementById('start-btn').style.display = 'block';
     }
-}
-
-// ─── SAVE / LOAD ──────────────────────────────────────────────────────────────
-function saveGame() {
-    if (!gameRunning) return;
-    const state = {
-        grid: grid.map(r => [...r]),
-        piece: { ...piece, shape: piece.shape.map(r => [...r]) },
-        nextQueue: [...nextQueue],
-        heldIdx,
-        canHold,
-        score,
-        level,
-        linesCleared,
-        combo,
-        b2b,
-        bag: [...bag],
-        lastActionRotation,
-        pieceRotation,
-        lockResets,
-        dropTimer,
-    };
-    localStorage.setItem('tetrisSave', JSON.stringify(state));
-    document.getElementById('load-btn').style.display = 'block';
-    const btn = document.getElementById('save-game-btn');
-    if (btn) {
-        btn.textContent = 'SAVED ✓';
-        btn.disabled = true;
-        setTimeout(() => { btn.textContent = 'SAVE GAME'; btn.disabled = false; }, 1500);
-    }
-}
-
-function loadGame() {
-    const raw = localStorage.getItem('tetrisSave');
-    if (!raw) return;
-    let state;
-    try { state = JSON.parse(raw); } catch (e) { return; }
-
-    grid = state.grid;
-    piece = state.piece;
-    nextQueue = state.nextQueue;
-    heldIdx = state.heldIdx;
-    canHold = state.canHold;
-    score = state.score;
-    level = state.level;
-    linesCleared = state.linesCleared;
-    combo = state.combo;
-    b2b = state.b2b;
-    bag = state.bag;
-    lastActionRotation = state.lastActionRotation;
-    pieceRotation = state.pieceRotation;
-    lockResets = state.lockResets;
-    dropTimer = state.dropTimer;
-
-    messages = [];
-    lastTime = null;
-    gameRunning = true;
-    gamePaused = false;
-    lockDelayActive = false;
-    lockTimer = 0;
-    lineClearAnim = null;
-    shakeTimer = 0;
-    shakeAmt = 0;
-    pieceEnterAnim = 0;
-
-    document.getElementById('overlay').style.display = 'none';
-    document.getElementById('final-score').style.display = 'none';
-    document.getElementById('overlay').querySelector('h1').textContent = 'TETRIS';
-    document.getElementById('pause-overlay').style.display = 'none';
-    document.getElementById('highscores-display').style.display = 'none'; // Hide high scores when loading game
-    document.getElementById('new-highscore-entry').style.display = 'none'; // Hide name input
-
-    renderHold();
-    renderNext();
-    updateUI();
-    bgMusic.currentTime = 0;
-    bgMusic.play().catch(() => { });
 }
 
 document.getElementById('resume-btn').addEventListener('click', () => {
@@ -1130,20 +1060,15 @@ document.getElementById('new-game-btn').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'block';
     document.getElementById('new-game-btn').style.display = 'none';
     document.getElementById('resume-btn').style.display = 'none';
-    document.getElementById('save-game-btn').style.display = 'none';
 });
 
 document.getElementById('confirm-yes').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
     document.getElementById('new-game-btn').style.display = 'block';
     document.getElementById('resume-btn').style.display = 'block';
-    document.getElementById('save-game-btn').style.display = 'block';
     document.getElementById('pause-overlay').style.display = 'none';
     gamePaused = false;
     cancelAnimationFrame(animFrame);
-    // Clear save since user explicitly started a new game
-    localStorage.removeItem('tetrisSave');
-    document.getElementById('load-btn').style.display = 'none';
     initGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
@@ -1152,7 +1077,6 @@ document.getElementById('confirm-no').addEventListener('click', () => {
     document.getElementById('confirm-panel').style.display = 'none';
     document.getElementById('new-game-btn').style.display = 'block';
     document.getElementById('resume-btn').style.display = 'block';
-    document.getElementById('save-game-btn').style.display = 'block';
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
@@ -1162,15 +1086,6 @@ document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('new-highscore-entry').style.display = 'none'; // Hide high score name input
     document.getElementById('highscores-display').style.display = 'none'; // Hide high scores when game starts
     initGame();
-    animFrame = requestAnimationFrame(gameLoop);
-});
-
-document.getElementById('save-game-btn').addEventListener('click', () => {
-    saveGame();
-});
-
-document.getElementById('load-btn').addEventListener('click', () => {
-    loadGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
 
@@ -1215,9 +1130,6 @@ document.getElementById('submit-name-btn').addEventListener('click', () => {
 
     document.getElementById('new-highscore-entry').style.display = 'none';
     document.getElementById('start-btn').style.display = 'block';
-    if (localStorage.getItem('tetrisSave')) {
-        document.getElementById('load-btn').style.display = 'block';
-    }
     updateUI();
 });
 
@@ -1226,9 +1138,6 @@ loadHighScores();
 displayHighScores();
 document.getElementById('highscores-display').style.display = 'block';
 spinValue('best-val', highScore);
-if (localStorage.getItem('tetrisSave')) {
-    document.getElementById('load-btn').style.display = 'block';
-}
 render();
 
 // GSAP entrance animation for the title overlay
@@ -1240,7 +1149,7 @@ render();
     gsap.set(letters, { y: -60, opacity: 0, rotationX: 90 });
     gsap.set([sub, ...btns], { opacity: 0, y: 20 });
     gsap.to(letters, { y: 0, opacity: 1, rotationX: 0, duration: 0.5, ease: 'back.out(1.4)', stagger: 0.07, delay: 0.1 });
-    gsap.to([sub, ...btns], { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', stagger: 0.1, delay: 0.65 });
+    gsap.to([sub, ...btns], { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', stagger: 0.1, delay: 0.65, clearProps: 'transform' });
 })();
 
 // ─── MOBILE CONTROLS (BUTTONS ONLY) ─────────────────────────────────────────

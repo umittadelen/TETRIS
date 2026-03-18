@@ -1,134 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#111111">
-<meta name="description" content="Classic Tetris game – play in your browser on desktop or mobile">
-<meta property="og:title" content="Tetris – All In Edition">
-<meta property="og:description" content="Classic Tetris game with touch controls. Play in your browser!">
-<meta property="og:type" content="website">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='4' width='12' height='12' fill='%2300f' rx='1'/><rect x='16' y='4' width='12' height='12' fill='%23ff0' rx='1'/><rect x='4' y='16' width='12' height='12' fill='%23f00' rx='1'/><rect x='16' y='16' width='12' height='12' fill='%230f0' rx='1'/></svg>">
-<title>Tetris</title>
-<link rel="stylesheet" href="style.css">
-</head>
-<body>
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport"
+			content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="theme-color" content="#111111">
+		<meta name="description" content="Classic Tetris game – play in your browser on desktop or mobile">
+		<meta property="og:title" content="Tetris – All In Edition">
+		<meta property="og:description" content="Classic Tetris game with touch controls. Play in your browser!">
+		<meta property="og:type" content="website">
+		<link rel="icon"
+			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='4' width='12' height='12' fill='%2300f' rx='1'/><rect x='16' y='4' width='12' height='12' fill='%23ff0' rx='1'/><rect x='4' y='16' width='12' height='12' fill='%23f00' rx='1'/><rect x='16' y='16' width='12' height='12' fill='%230f0' rx='1'/></svg>">
+		<title>Tetris</title>
+		<link rel="preload" href="fonts/Inter.ttf" as="font" type="font/truetype" crossorigin>
+		<link rel="preload" href="fonts/DSEG7ClassicMini-Regular.ttf" as="font" type="font/truetype" crossorigin>
+		<link rel="stylesheet" href="style.css">
+	</head>
 
-<div id="game-wrapper">
-  <!-- Left panel -->
-  <div class="side-panel" style="align-items:flex-end;">
-    <div class="panel-box">
-      <div class="panel-label">Hold</div>
-      <canvas id="hold-canvas"></canvas>
-    </div>
-    <div class="panel-box">
-      <div class="panel-label">Score</div>
-      <div class="panel-value" id="score-val"><span class="panel-value-inner">0</span></div>
-    </div>
-    <div class="panel-box">
-      <div class="panel-label">Level</div>
-      <div class="panel-value" id="level-val"><span class="panel-value-inner">0</span></div>
-    </div>
-    <div class="panel-box">
-      <div class="panel-label">Lines</div>
-      <div class="panel-value" id="lines-val"><span class="panel-value-inner">0</span></div>
-    </div>
-    <div class="panel-box">
-      <div class="panel-label">Best</div>
-      <div class="panel-value" id="best-val"><span class="panel-value-inner">0</span></div>
-    </div>
-  </div>
+	<body>
 
-  <!-- Main board -->
-  <canvas id="board-canvas"></canvas>
+		<div id="game-wrapper">
+			<!-- Left panel -->
+			<div class="side-panel" style="align-items:flex-end;">
+				<div class="panel-box">
+					<div class="panel-label">Hold</div>
+					<canvas id="hold-canvas"></canvas>
+				</div>
+				<div class="panel-box">
+					<div class="panel-label">Score</div>
+					<div class="panel-value" id="score-val"><span class="panel-value-inner">0</span></div>
+				</div>
+				<div class="panel-box">
+					<div class="panel-label">Level</div>
+					<div class="panel-value" id="level-val"><span class="panel-value-inner">0</span></div>
+				</div>
+				<div class="panel-box">
+					<div class="panel-label">Lines</div>
+					<div class="panel-value" id="lines-val"><span class="panel-value-inner">0</span></div>
+				</div>
+				<div class="panel-box">
+					<div class="panel-label">Best</div>
+					<div class="panel-value" id="best-val"><span class="panel-value-inner">0</span></div>
+				</div>
+			</div>
 
-  <!-- Right panel -->
-  <div class="side-panel">
-    <div class="panel-box">
-      <div class="panel-label">Next</div>
-      <canvas id="next-canvas"></canvas>
-    </div>
-  </div>
-</div>
+			<!-- Main board -->
+			<canvas id="board-canvas"></canvas>
 
-<div id="overlay">
-  <h1><span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span></h1>
-  <div class="sub">ALL IN EDITION</div>
-  <div class="final-score" id="final-score" style="display:none"></div>
-  <button id="start-btn">START GAME</button>
-  <button id="load-btn" style="display:none; margin-top:10px;">LOAD SAVED GAME</button>
+			<!-- Right panel -->
+			<div class="side-panel">
+				<div class="panel-box">
+					<div class="panel-label">Next</div>
+					<canvas id="next-canvas"></canvas>
+				</div>
+			</div>
+		</div>
 
-  <!-- High Scores Display -->
-  <div id="highscores-display" style="display:none;">
-      <h3 style="margin-top:30px; margin-bottom:15px; color:#fff;">HIGH SCORES</h3>
-      <ol id="highscores-list" class="highscores-list"></ol>
-      <div id="new-highscore-entry" style="display:none;">
-          <p>You got a High Score! Enter your name:</p>
-          <input type="text" id="player-name-input" maxlength="10" placeholder="Your Name" class="player-name-input">
-          <button id="submit-name-btn" class="submit-name-btn">SUBMIT</button>
-      </div>
-  </div>
-</div>
+		<div id="overlay">
+			<h1><span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span></h1>
+			<div class="sub">ALL IN EDITION</div>
+			<div class="final-score" id="final-score" style="display:none"></div>
+			<button id="start-btn">START GAME</button>
 
-<div id="pause-overlay">
-  <h2>PAUSED</h2>
-  <p>Press ESC to resume</p>
-  <button id="resume-btn">RESUME</button>
-  <button id="save-game-btn">SAVE GAME</button>
-  <button id="new-game-btn">NEW GAME</button>
+			<!-- High Scores Display -->
+			<div id="highscores-display" style="display:none;">
+				<h3 style="margin-top:30px; margin-bottom:15px; color:#fff;">HIGH SCORES</h3>
+				<ol id="highscores-list" class="highscores-list"></ol>
+				<div id="new-highscore-entry" style="display:none;">
+					<p>You got a High Score! Enter your name:</p>
+					<div>
+						<input type="text" id="player-name-input" maxlength="10" placeholder="Your Name" class="player-name-input">
+						<button id="submit-name-btn" class="submit-name-btn">SUBMIT</button>
+					</div>
+				</div>
+			</div>
+		</div>
 
-  <!-- Confirmation panel -->
-  <div id="confirm-panel" style="display:none; margin-top:20px; text-align:center;">
-    <p style="margin-bottom:14px; color:#fff; font-size:13px; letter-spacing:1px;">Are you sure? This will reset the current game.</p>
-    <div style="display:flex; gap:12px; justify-content:center;">
-      <button id="confirm-yes">YES, RESET</button>
-      <button id="confirm-no" style="background:#444; color:#fff;">CANCEL</button>
-    </div>
-  </div>
-</div>
+		<div id="pause-overlay">
+			<h2>PAUSED</h2>
+			<p>Press ESC to resume</p>
+			<button id="resume-btn">RESUME</button>
+			<button id="new-game-btn">NEW GAME</button>
 
-<div class="controls-hint" id="desktop-controls-hint">
-  ← → Move &nbsp;|&nbsp; ↑ Rotate &nbsp;|&nbsp; ↓ Soft Drop &nbsp;|&nbsp; Space Hard Drop &nbsp;|&nbsp; Shift / C Hold &nbsp;|&nbsp; Esc Pause
-</div>
+			<!-- Confirmation panel -->
+			<div id="confirm-panel" style="display:none; margin-top:20px; text-align:center;">
+				<p style="margin-bottom:14px; color:#fff; font-size:13px; letter-spacing:1px;">Are you sure? This will reset
+					the
+					current game.</p>
+				<div style="display:flex; gap:12px; justify-content:center;">
+					<button id="confirm-yes">YES, RESET</button>
+					<button id="confirm-no" style="background:#444; color:#fff;">CANCEL</button>
+				</div>
+			</div>
+		</div>
 
-<!-- Mobile top bar (hold, score/level, next + pause) -->
-<div id="mobile-top-bar">
-  <div class="mobile-mini-box">
-    <div class="mobile-mini-label">HOLD</div>
-    <canvas id="m-hold-canvas"></canvas>
-  </div>
-  <div class="mobile-stats">
-    <div class="mobile-stat">SCR <span id="m-score">0</span></div>
-    <div class="mobile-stat">LVL <span id="m-level">0</span></div>
-    <div class="mobile-stat">LNS <span id="m-lines">0</span></div>
-  </div>
-  <div class="mobile-mini-box">
-    <div class="mobile-mini-label">NEXT</div>
-    <canvas id="m-next-canvas"></canvas>
-  </div>
-  <button class="mobile-pause-btn" id="m-pause">⏸</button>
-</div>
+		<div class="controls-hint" id="desktop-controls-hint">
+			← → Move &nbsp;|&nbsp; ↑ Rotate &nbsp;|&nbsp; ↓ Soft Drop &nbsp;|&nbsp; Space Hard Drop &nbsp;|&nbsp; Shift / C
+			Hold
+			&nbsp;|&nbsp; Esc Pause
+		</div>
 
-<!-- Mobile bottom buttons -->
-<div id="mobile-controls">
-  <div class="touch-btn-group">
-    <button class="touch-btn" id="tb-left" aria-label="Move Left">◀</button>
-    <button class="touch-btn" id="tb-down" aria-label="Soft Drop">▼</button>
-    <button class="touch-btn" id="tb-right" aria-label="Move Right">▶</button>
-  </div>
-  <div class="touch-btn-group">
-    <button class="touch-btn wide" id="tb-rotate" aria-label="Rotate">↻</button>
-    <button class="touch-btn wide" id="tb-hard" aria-label="Hard Drop">⤓</button>
-    <button class="touch-btn wide" id="tb-hold" aria-label="Hold">HOLD</button>
-  </div>
-</div>
+		<!-- Mobile top bar (hold, score/level, next + pause) -->
+		<div id="mobile-top-bar">
+			<div class="mobile-mini-box">
+				<div class="mobile-mini-label">HOLD</div>
+				<canvas id="m-hold-canvas"></canvas>
+			</div>
+			<div class="mobile-stats">
+				<div class="mobile-stat">SCR <span id="m-score">0</span></div>
+				<div class="mobile-stat">LVL <span id="m-level">0</span></div>
+				<div class="mobile-stat">LNS <span id="m-lines">0</span></div>
+			</div>
+			<div class="mobile-mini-box">
+				<div class="mobile-mini-label">NEXT</div>
+				<canvas id="m-next-canvas"></canvas>
+			</div>
+			<button class="mobile-pause-btn" id="m-pause">⏸</button>
+		</div>
 
-<audio id="bg-music" src="tetris.mp3" loop preload="auto"></audio>
+		<!-- Mobile bottom buttons -->
+		<div id="mobile-controls">
+			<div class="touch-btn-group">
+				<button class="touch-btn" id="tb-left" aria-label="Move Left">◀</button>
+				<button class="touch-btn" id="tb-down" aria-label="Soft Drop">▼</button>
+				<button class="touch-btn" id="tb-right" aria-label="Move Right">▶</button>
+			</div>
+			<div class="touch-btn-group">
+				<button class="touch-btn wide" id="tb-rotate" aria-label="Rotate">↻</button>
+				<button class="touch-btn wide" id="tb-hard" aria-label="Hard Drop">⤓</button>
+				<button class="touch-btn wide" id="tb-hold" aria-label="Hold">HOLD</button>
+			</div>
+		</div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-<script src="script.js"></script>
-</body>
+		<audio id="bg-music" src="./sounds/tetris.mp3" loop preload="auto"></audio>
+
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+		<script src="script.js"></script>
+	</body>
 </html>

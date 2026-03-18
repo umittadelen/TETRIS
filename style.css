@@ -8,8 +8,13 @@
     font-family: "DSEG7Classic";
     src: url('fonts/DSEG7ClassicMini-Regular.ttf') format('truetype');
 }
+@font-face {
+    font-family: "Inter";
+    src: url('fonts/Inter.ttf') format('truetype');
+}
 /* NES used a very specific dark navy, not pure black */
 :root {
+    --UI-font: "Inter", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     --bg:          #0a0a12;
     --board-bg:    #06060e;
     --panel-bg:    #0e0e1a;
@@ -25,7 +30,7 @@
 
 html, body {
     background: var(--bg);
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--UI-font);
     color: var(--white);
     overflow: hidden;
     height: 100%;
@@ -107,7 +112,7 @@ canvas {
     text-transform: uppercase;
     margin-bottom: 5px;
     font-weight: 700;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--UI-font);
 }
 
 /* Each digit is its own overflow-hidden column */
@@ -154,10 +159,8 @@ canvas {
     font-weight: 900;
     letter-spacing: 6px;
     margin-bottom: 4px;
-    font-family: "Segoe UI Black", "Arial Black", sans-serif;
+    font-family: var(--UI-font);
     text-transform: uppercase;
-    /* Pixel-style text shadow: offset copies = chunky outline */
-    -webkit-text-stroke: 2px #000;
 }
 
 #overlay h1 span { display: inline-block; }
@@ -178,12 +181,11 @@ canvas {
 }
 
 #overlay .final-score {
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--UI-font);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 2px;
     color: var(--gold);
-    margin-bottom: 20px;
     border: 2px solid var(--border);
     padding: 8px 16px;
     background: var(--panel-bg);
@@ -209,9 +211,9 @@ canvas {
 }
 
 /* ─── BUTTONS ────────────────────────────────────────────── */
-/* NES-style: flat, chunky, no radius, hard shadow offset */
 #overlay button,
-#pause-overlay button {
+#pause-overlay button,
+#start-btn {
     padding: 10px 28px;
     font-size: 11px;
     font-weight: 900;
@@ -224,24 +226,37 @@ canvas {
     cursor: pointer;
     outline: none;
     -webkit-tap-highlight-color: transparent;
-    /* Hard pixel shadow — NES button feel */
-    box-shadow: 3px 3px 0 #000, -1px -1px 0 rgba(255,255,255,0.3) inset;
+    position: relative;
+    box-shadow:
+        /* top-left bright bevel */
+        inset 3px 3px 0 rgba(255,255,255,0.85),
+        /* bottom-right dark bevel */
+        inset -3px -3px 0 rgba(0,0,0,0.45),
+        /* hard drop shadow */
+        4px 4px 0 #000;
     transition: transform 0.06s, box-shadow 0.06s;
-    margin-bottom: 8px;
     display: block;
+    margin-bottom: 10px;
 }
 
 #overlay button:hover,
-#pause-overlay button:hover {
-    background: #fff;
+#pause-overlay button:hover,
+#start-btn:hover {
+    box-shadow:
+        inset 3px 3px 0 rgba(255,255,255,0.95),
+        inset -3px -3px 0 rgba(0,0,0,0.5),
+        5px 5px 0 #000;
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 #000, -1px -1px 0 rgba(255,255,255,0.3) inset;
 }
 
 #overlay button:active,
-#pause-overlay button:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 #000;
+#pause-overlay button:active,
+#start-btn:active {
+    transform: translate(3px, 3px);
+    box-shadow:
+        inset 3px 3px 0 rgba(0,0,0,0.35),
+        inset -3px -3px 0 rgba(255,255,255,0.15),
+        1px 1px 0 #000;
 }
 
 #start-btn {
@@ -278,7 +293,6 @@ canvas {
     font-weight: 900;
     letter-spacing: 8px;
     color: var(--white);
-    -webkit-text-stroke: 2px #000;
     margin-bottom: 6px;
 }
 
@@ -385,7 +399,7 @@ canvas {
     color: var(--text-mid);
     margin-bottom: 10px;
     text-transform: uppercase;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--UI-font);
 }
 
 #new-highscore-entry {
@@ -396,19 +410,25 @@ canvas {
     margin-top: 20px;
 }
 
+#new-highscore-entry > div {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+}
+
 .player-name-input {
     padding: 8px 10px;
     font-size: 13px;
     font-weight: 700;
     letter-spacing: 2px;
-    text-transform: uppercase;
     background: var(--panel-bg);
     border: 2px solid var(--border-lit);
     border-radius: 0;
     color: var(--white);
     outline: none;
     width: 180px;
-    font-family: monospace;
+    font-family: var(--UI-font);
 }
 
 .player-name-input:focus {
@@ -432,19 +452,29 @@ canvas {
     border-radius: 0;
     color: #000;
     cursor: pointer;
-    box-shadow: 3px 3px 0 #000;
+    align-self: stretch;
+    box-shadow:
+        inset 3px 3px 0 rgba(255,255,255,0.75),
+        inset -3px -3px 0 rgba(0,0,0,0.35),
+        4px 4px 0 #000;
     transition: transform 0.06s, box-shadow 0.06s;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    font-family: var(--UI-font);
 }
 
 .submit-name-btn:hover {
     transform: translate(-1px, -1px);
-    box-shadow: 4px 4px 0 #000;
+    box-shadow:
+        inset 3px 3px 0 rgba(255,255,255,0.9),
+        inset -3px -3px 0 rgba(0,0,0,0.4),
+        5px 5px 0 #000;
 }
 
 .submit-name-btn:active {
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 #000;
+    transform: translate(3px, 3px);
+    box-shadow:
+        inset 3px 3px 0 rgba(0,0,0,0.3),
+        inset -3px -3px 0 rgba(255,255,255,0.1),
+        1px 1px 0 #000;
 }
 
 /* ─── MOBILE TOUCH CONTROLS ──────────────────────────────── */
