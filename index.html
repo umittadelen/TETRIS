@@ -26,19 +26,19 @@
     </div>
     <div class="panel-box">
       <div class="panel-label">Score</div>
-      <div class="panel-value" id="score-val">0</div>
+      <div class="panel-value" id="score-val"><span class="panel-value-inner">0</span></div>
     </div>
     <div class="panel-box">
       <div class="panel-label">Level</div>
-      <div class="panel-value" id="level-val">0</div>
+      <div class="panel-value" id="level-val"><span class="panel-value-inner">0</span></div>
     </div>
     <div class="panel-box">
       <div class="panel-label">Lines</div>
-      <div class="panel-value" id="lines-val">0</div>
+      <div class="panel-value" id="lines-val"><span class="panel-value-inner">0</span></div>
     </div>
     <div class="panel-box">
       <div class="panel-label">Best</div>
-      <div class="panel-value" id="best-val">0</div>
+      <div class="panel-value" id="best-val"><span class="panel-value-inner">0</span></div>
     </div>
   </div>
 
@@ -65,10 +65,10 @@
   <div id="highscores-display" style="display:none;">
       <h3 style="margin-top:30px; margin-bottom:15px; color:#fff;">HIGH SCORES</h3>
       <ol id="highscores-list" class="highscores-list"></ol>
-      <div id="new-highscore-entry" style="display:none; margin-top:20px; text-align:center;">
-          <p style="margin-bottom:10px; color:#fff;">You got a High Score! Enter your name:</p>
+      <div id="new-highscore-entry" style="display:none;">
+          <p>You got a High Score! Enter your name:</p>
           <input type="text" id="player-name-input" maxlength="10" placeholder="Your Name" class="player-name-input">
-          <button id="submit-name-btn" class="submit-name-btn">Submit</button>
+          <button id="submit-name-btn" class="submit-name-btn">SUBMIT</button>
       </div>
   </div>
 </div>
@@ -128,6 +128,7 @@
 
 <audio id="bg-music" src="tetris.mp3" loop preload="auto"></audio>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

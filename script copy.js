@@ -96,26 +96,20 @@ const MINI = Math.max(16, Math.round(BLOCK * 0.75));
 const SIDE_W = 4 * MINI + 10;
 const SIDE_H = 3 * MINI + 10;
 
-const DPR = window.devicePixelRatio || 1;
-
-function setupCanvas(canvas, cssW, cssH) {
-    canvas.width  = Math.round(cssW * DPR);
-    canvas.height = Math.round(cssH * DPR);
-    canvas.style.width  = cssW + 'px';
-    canvas.style.height = cssH + 'px';
-    const context = canvas.getContext('2d');
-    context.scale(DPR, DPR);
-    return context;
-}
-
 const boardCanvas = document.getElementById('board-canvas');
-const ctx = setupCanvas(boardCanvas, COLS * BLOCK, ROWS * BLOCK);
+boardCanvas.width = COLS * BLOCK;
+boardCanvas.height = ROWS * BLOCK;
+const ctx = boardCanvas.getContext('2d');
 
 const holdCanvas = document.getElementById('hold-canvas');
-const hctx = setupCanvas(holdCanvas, SIDE_W, SIDE_H);
+holdCanvas.width = SIDE_W;
+holdCanvas.height = SIDE_H;
+const hctx = holdCanvas.getContext('2d');
 
 const nextCanvas = document.getElementById('next-canvas');
-const nctx = setupCanvas(nextCanvas, SIDE_W, NEXT_QUEUE_SIZE * SIDE_H);
+nextCanvas.width = SIDE_W;
+nextCanvas.height = NEXT_QUEUE_SIZE * SIDE_H;
+const nctx = nextCanvas.getContext('2d');
 
 // Mobile mini canvases for hold/next
 const M_MINI = 12;
@@ -123,10 +117,12 @@ const M_SIDE_W = 4 * M_MINI + 8;
 const M_SIDE_H = 3 * M_MINI + 8;
 
 const mHoldCanvas = document.getElementById('m-hold-canvas');
-const mhctx = mHoldCanvas ? setupCanvas(mHoldCanvas, M_SIDE_W, M_SIDE_H) : null;
+if (mHoldCanvas) { mHoldCanvas.width = M_SIDE_W; mHoldCanvas.height = M_SIDE_H; }
+const mhctx = mHoldCanvas ? mHoldCanvas.getContext('2d') : null;
 
 const mNextCanvas = document.getElementById('m-next-canvas');
-const mnctx = mNextCanvas ? setupCanvas(mNextCanvas, M_SIDE_W, M_SIDE_H) : null;
+if (mNextCanvas) { mNextCanvas.width = M_SIDE_W; mNextCanvas.height = M_SIDE_H; }
+const mnctx = mNextCanvas ? mNextCanvas.getContext('2d') : null;
 
 // ─── GAME STATE ──────────────────────────────────────────────────────────────
 let grid, piece, nextQueue, heldIdx, canHold;
@@ -148,11 +144,7 @@ let lockTimer = 0, lockDelayActive = false, lockResets = 0;
 let lineClearAnim = null; // { rows, timer, total, num, lv, prevB2b }
 
 // Board shake
-let shakeTimer = 0, shakeAmt = 0, shakeX = 0, shakeY = 0;
-
-// Hard drop trail & lock flash
-let hardDropTrail = null;
-let lockFlash = null;
+let shakeTimer = 0, shakeAmt = 0;
 
 // Piece enter animation
 let pieceEnterAnim = 0; // ms remaining
@@ -312,19 +304,8 @@ function movePiece(dx, dy) {
 
 function hardDrop() {
     if (lineClearAnim) return;
-    const startY = piece.y;
     let dist = 0;
     while (!collides(piece.x, piece.y + 1, piece.shape)) { piece.y++; dist++; }
-    // Spawn trail cells from start to landing
-    if (dist > 0) {
-        const cells = [];
-        for (let r = 0; r < piece.shape.length; r++)
-            for (let c = 0; c < piece.shape[r].length; c++)
-                if (piece.shape[r][c])
-                    for (let dy = 0; dy < dist; dy++)
-                        cells.push({ x: piece.x + c, y: startY + r + dy });
-        hardDropTrail = { cells, color: COLORS[piece.idx], timer: 0, total: 120 };
-    }
     lockDelayActive = false; lockTimer = 0;
     lockPiece(dist, true);
 }
@@ -362,15 +343,10 @@ function lockPiece(dropDist, isHard) {
     score += dropDist * (isHard ? 2 : 1);
     lockDelayActive = false; lockTimer = 0;
     const tspin = detectTspin();
-    // Collect locked cells for flash
-    const flashCells = [];
     for (let r = 0; r < piece.shape.length; r++)
         for (let c = 0; c < piece.shape[r].length; c++)
-            if (piece.shape[r][c] && piece.y + r >= 0) {
+            if (piece.shape[r][c] && piece.y + r >= 0)
                 grid[piece.y + r][piece.x + c] = COLORS[piece.idx];
-                flashCells.push({ x: piece.x + c, y: piece.y + r });
-            }
-    lockFlash = { cells: flashCells, timer: 0, total: 180 };
     const animStarted = clearLines(tspin);
     if (!animStarted) newPiece();
     dropTimer = 0;
@@ -461,15 +437,13 @@ function clearLines(tspin) {
 // ─── FLOATING MESSAGES ───────────────────────────────────────────────────────
 function spawnMessage(text) {
     const py = piece ? Math.max(piece.y * BLOCK + 20, BLOCK * 3) : ROWS * BLOCK * 0.35;
-    messages.push({ text, x: (COLS * BLOCK) / 2, y: py, alpha: 1, vy: -1.5, life: 70, scale: 1.4 });
+    messages.push({ text, x: (COLS * BLOCK) / 2, y: py, alpha: 1, vy: -1.2, life: 80 });
 }
 
 // ─── SHAKE ───────────────────────────────────────────────────────────────────
 function triggerShake(intensity) {
     shakeAmt = intensity;
     shakeTimer = 350;
-    shakeX = (Math.random() - 0.5) * 2 * intensity;
-    shakeY = (Math.random() - 0.5) * 2 * intensity;
 }
 
 // ─── RENDER ──────────────────────────────────────────────────────────────────
@@ -485,49 +459,50 @@ function shadeColor(hex, pct) {
 
 function drawBlockAt(context, px, py, S, color, alpha, outlineOnly) {
     context.globalAlpha = alpha;
+    const B = Math.max(1, Math.floor(S * 0.15)); // bevel size
 
     if (outlineOnly) {
         context.strokeStyle = color;
         context.lineWidth = 1;
         context.strokeRect(px + 0.5, py + 0.5, S - 1, S - 1);
-        context.globalAlpha = 1;
-        return;
+    } else {
+        // Main face
+        context.fillStyle = color;
+        context.fillRect(px, py, S, S);
+
+        // Top-left highlight (trapezoid)
+        context.fillStyle = shadeColor(color, 0.45);
+        context.beginPath();
+        context.moveTo(px, py);
+        context.lineTo(px + S, py);
+        context.lineTo(px + S - B, py + B);
+        context.lineTo(px + B, py + B);
+        context.lineTo(px + B, py + S - B);
+        context.lineTo(px, py + S);
+        context.closePath();
+        context.fill();
+
+        // Bottom-right shadow (trapezoid)
+        context.fillStyle = shadeColor(color, -0.35);
+        context.beginPath();
+        context.moveTo(px + S, py);
+        context.lineTo(px + S, py + S);
+        context.lineTo(px, py + S);
+        context.lineTo(px + B, py + S - B);
+        context.lineTo(px + S - B, py + S - B);
+        context.lineTo(px + S - B, py + B);
+        context.closePath();
+        context.fill();
+
+        // Inner face (slightly darker center to give depth)
+        context.fillStyle = shadeColor(color, -0.08);
+        context.fillRect(px + B, py + B, S - B * 2, S - B * 2);
+
+        // Thin dark border
+        context.strokeStyle = 'rgba(0,0,0,0.55)';
+        context.lineWidth = 1;
+        context.strokeRect(px + 0.5, py + 0.5, S - 1, S - 1);
     }
-
-    const B = Math.max(1, Math.floor(S * 0.18)); // bevel thickness
-
-    // 1. Dark outer border (1px gap from edge)
-    context.fillStyle = 'rgba(0,0,0,0.7)';
-    context.fillRect(px, py, S, S);
-
-    // 2. Main color fill (inset by 1px)
-    context.fillStyle = color;
-    context.fillRect(px + 1, py + 1, S - 2, S - 2);
-
-    // 3. Top-left bright bevel
-    context.fillStyle = shadeColor(color, 0.5);
-    // top strip
-    context.fillRect(px + 1, py + 1, S - 2, B);
-    // left strip
-    context.fillRect(px + 1, py + 1 + B, B, S - 2 - B);
-
-    // 4. Bottom-right dark bevel
-    context.fillStyle = shadeColor(color, -0.4);
-    // bottom strip
-    context.fillRect(px + 1, py + S - 1 - B, S - 2, B);
-    // right strip
-    context.fillRect(px + S - 1 - B, py + 1, B, S - 2 - B);
-
-    // 5. NES-style inner face — slightly desaturated center square
-    const inner = B + 1;
-    context.fillStyle = shadeColor(color, -0.12);
-    context.fillRect(px + inner, py + inner, S - inner * 2, S - inner * 2);
-
-    // 6. Small bright specular dot — top-left corner of inner face
-    const dotS = Math.max(2, Math.floor(S * 0.18));
-    context.fillStyle = shadeColor(color, 0.65);
-    context.fillRect(px + inner, py + inner, dotS, dotS);
-
     context.globalAlpha = 1;
 }
 
@@ -550,12 +525,12 @@ function drawMiniPiece(context, shapeIdx, canvasW, canvasH, miniSize) {
 }
 
 function renderHold() {
-    drawMiniPiece(hctx, heldIdx, SIDE_W, SIDE_H);
-    if (mhctx) drawMiniPiece(mhctx, heldIdx, M_SIDE_W, M_SIDE_H, M_MINI);
+    drawMiniPiece(hctx, heldIdx, holdCanvas.width, holdCanvas.height);
+    if (mhctx) drawMiniPiece(mhctx, heldIdx, mHoldCanvas.width, mHoldCanvas.height, M_MINI);
 }
 function renderNext() {
-    const w = SIDE_W;
-    const totalH = NEXT_QUEUE_SIZE * SIDE_H;
+    const w = nextCanvas.width;
+    const totalH = nextCanvas.height;
     nctx.clearRect(0, 0, w, totalH);
     const slotH = Math.floor(totalH / nextQueue.length);
     nextQueue.forEach((idx, i) => {
@@ -568,27 +543,19 @@ function renderNext() {
                 if (shape[r][c])
                     drawBlockAt(nctx, offX + c * mini, offY + r * mini, mini, COLORS[idx], 1, false);
     });
-    if (mnctx) drawMiniPiece(mnctx, nextQueue[0], M_SIDE_W, M_SIDE_H, M_MINI);
+    if (mnctx) drawMiniPiece(mnctx, nextQueue[0], mNextCanvas.width, mNextCanvas.height, M_MINI);
 }
 
 function drawMessages() {
     ctx.textAlign = 'center';
     for (const m of messages) {
-        ctx.save();
         ctx.globalAlpha = m.alpha;
-        ctx.translate(m.x, m.y);
-        ctx.scale(m.scale, m.scale);
         ctx.font = 'bold 18px Impact, Arial';
-        // Colored glow
-        ctx.shadowColor = '#00eeff';
-        ctx.shadowBlur = 12;
         ctx.fillStyle = '#fff';
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 4;
-        ctx.strokeText(m.text, 0, 0);
-        ctx.fillText(m.text, 0, 0);
-        ctx.shadowBlur = 0;
-        ctx.restore();
+        ctx.lineWidth = 3;
+        ctx.strokeText(m.text, m.x, m.y);
+        ctx.fillText(m.text, m.x, m.y);
     }
     ctx.globalAlpha = 1;
 }
@@ -596,8 +563,12 @@ function drawMessages() {
 function render() {
     ctx.clearRect(0, 0, boardCanvas.width, boardCanvas.height);
 
+    // Board shake
     ctx.save();
-    if (shakeTimer > 0) ctx.translate(shakeX, shakeY);
+    if (shakeTimer > 0) {
+        const mag = shakeAmt * (shakeTimer / 350);
+        ctx.translate((Math.random() - 0.5) * mag * 2, (Math.random() - 0.5) * mag * 2);
+    }
 
     // Grid background + subtle grid lines
     ctx.fillStyle = '#0a0a0a';
@@ -614,51 +585,14 @@ function render() {
                 if (grid[r][c]) drawBlock(ctx, c, r, grid[r][c]);
     }
 
-    // Hard drop trail
-    if (hardDropTrail) {
-        const t = hardDropTrail.timer / hardDropTrail.total;
-        const alpha = (1 - t) * 0.45;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = hardDropTrail.color;
-        for (const cell of hardDropTrail.cells) {
-            ctx.fillRect(cell.x * BLOCK + 2, cell.y * BLOCK + 2, BLOCK - 4, BLOCK - 4);
-        }
-        ctx.globalAlpha = 1;
-    }
-
-    // Lock flash — bright stamp on placed cells
-    if (lockFlash) {
-        const t = lockFlash.timer / lockFlash.total;
-        const alpha = Math.pow(1 - t, 2) * 0.85;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = '#ffffff';
-        for (const cell of lockFlash.cells) {
-            ctx.fillRect(cell.x * BLOCK, cell.y * BLOCK, BLOCK, BLOCK);
-        }
-        ctx.globalAlpha = 1;
-    }
-
-    // Line clear animation — flash bright then collapse rows
+    // Line clear animation flash
     if (lineClearAnim) {
         const t = lineClearAnim.timer / lineClearAnim.total;
+        const flash = Math.abs(Math.sin(t * Math.PI * 4)) * (1 - t * 0.4);
+        ctx.globalAlpha = flash;
+        ctx.fillStyle = '#fff';
         for (const r of lineClearAnim.rows) {
-            if (t < 0.4) {
-                // Phase 1: bright white flash
-                const flashT = t / 0.4;
-                ctx.globalAlpha = 1 - flashT * 0.3;
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, r * BLOCK, COLS * BLOCK, BLOCK);
-                ctx.fillStyle = 'rgba(180,230,255,0.6)';
-                ctx.fillRect(0, r * BLOCK, COLS * BLOCK, BLOCK);
-            } else {
-                // Phase 2: collapse inward (shrink height to 0)
-                const collapseT = (t - 0.4) / 0.6;
-                const h = BLOCK * (1 - collapseT);
-                const yOff = r * BLOCK + (BLOCK - h) / 2;
-                ctx.globalAlpha = 1 - collapseT * 0.8;
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, yOff, COLS * BLOCK, h);
-            }
+            ctx.fillRect(0, r * BLOCK, COLS * BLOCK, BLOCK);
         }
         ctx.globalAlpha = 1;
     }
@@ -676,12 +610,12 @@ function render() {
         for (let r = 0; r < piece.shape.length; r++)
             for (let c = 0; c < piece.shape[r].length; c++)
                 if (piece.shape[r][c]) {
-                    ctx.globalAlpha = 0.28;
+                    ctx.globalAlpha = 0.18;
                     ctx.fillStyle = ghostColor;
-                    ctx.fillRect((piece.x + c) * BLOCK + 1, (gy + r) * BLOCK + 1, BLOCK - 2, BLOCK - 2);
+                    ctx.fillRect((piece.x + c) * BLOCK, (gy + r) * BLOCK, BLOCK, BLOCK);
                     ctx.globalAlpha = 1;
                     ctx.strokeStyle = ghostColor;
-                    ctx.lineWidth = 1.5;
+                    ctx.lineWidth = 1;
                     ctx.strokeRect((piece.x + c) * BLOCK + 0.5, (gy + r) * BLOCK + 0.5, BLOCK - 1, BLOCK - 1);
                 }
     }
@@ -691,10 +625,9 @@ function render() {
         for (let c = 0; c < piece.shape[r].length; c++)
             if (piece.shape[r][c]) drawBlock(ctx, piece.x + c, piece.y + r, COLORS[piece.idx]);
 
-    // Piece enter flash — quick bright pop, eases out
+    // Piece enter flash
     if (pieceEnterAnim > 0) {
-        const t = pieceEnterAnim / 180;
-        const flashAlpha = t * t * 0.75; // quadratic ease-out
+        const flashAlpha = (pieceEnterAnim / 180) * 0.7;
         ctx.globalAlpha = flashAlpha;
         ctx.fillStyle = '#ffffff';
         for (let r = 0; r < piece.shape.length; r++)
@@ -710,47 +643,11 @@ function render() {
 }
 
 function updateUI() {
-    const best = highScores.length > 0 ? highScores[0].score : 0;
-    spinValue('score-val', score);
-    spinValue('level-val', level + 1);
-    spinValue('lines-val', linesCleared);
-    spinValue('best-val', best);
-}
-
-function spinValue(id, newVal) {
-    const container = document.getElementById(id);
-    if (!container) return;
-    if (typeof gsap === 'undefined') {
-        const inner = container.querySelector('.panel-value-inner');
-        if (inner) inner.textContent = newVal; else container.textContent = newVal;
-        return;
-    }
-
-    const newStr = String(newVal);
-    const digits = container.querySelectorAll('.digit');
-
-    // First render or digit count changed — rebuild digit spans
-    if (!digits.length || digits.length !== newStr.length) {
-        container.innerHTML = newStr.split('').map(d =>
-            `<span class="digit" style="display:inline-block;overflow:hidden;height:1em;vertical-align:top;"><span class="digit-inner" style="display:block;">${d}</span></span>`
-        ).join('');
-        return;
-    }
-
-    // Spin only the digits that changed
-    digits.forEach((digitEl, i) => {
-        const inner = digitEl.querySelector('.digit-inner');
-        const oldChar = inner.textContent;
-        const newChar = newStr[i];
-        if (oldChar === newChar) return;
-        gsap.killTweensOf(inner);
-        gsap.set(inner, { y: '0em', opacity: 1 });
-        inner.textContent = newChar;
-        gsap.fromTo(inner,
-            { y: '1em', opacity: 0 },
-            { y: '0em', opacity: 1, duration: 0.13, ease: 'power2.out' }
-        );
-    });
+    document.getElementById('score-val').textContent = score;
+    document.getElementById('level-val').textContent = level + 1;
+    document.getElementById('lines-val').textContent = linesCleared;
+    // Best score now comes from the top of the highScores list
+    document.getElementById('best-val').textContent = highScores.length > 0 ? highScores[0].score : 0;
 }
 
 // ─── GAME LOOP ───────────────────────────────────────────────────────────────
@@ -814,32 +711,12 @@ function gameLoop(ts) {
         }
     }
 
-    // Shake timer — regenerate offset each frame for jitter feel
-    if (shakeTimer > 0) {
-        shakeTimer = Math.max(0, shakeTimer - dt);
-        const decay = shakeTimer / 350;
-        shakeX = (Math.random() - 0.5) * 2 * shakeAmt * decay;
-        shakeY = (Math.random() - 0.5) * 2 * shakeAmt * decay;
-    }
-    // Advance trail/flash timers
-    if (hardDropTrail) {
-        hardDropTrail.timer += dt;
-        if (hardDropTrail.timer >= hardDropTrail.total) hardDropTrail = null;
-    }
-    if (lockFlash) {
-        lockFlash.timer += dt;
-        if (lockFlash.timer >= lockFlash.total) lockFlash = null;
-    }
+    // Shake timer
+    if (shakeTimer > 0) shakeTimer = Math.max(0, shakeTimer - dt);
     if (pieceEnterAnim > 0) pieceEnterAnim = Math.max(0, pieceEnterAnim - dt);
 
-    // Update messages — scale pops in then settles to 1
-    for (const m of messages) {
-        m.y += m.vy;
-        m.vy *= 0.92; // decelerate
-        m.alpha -= 1 / m.life;
-        m.scale = Math.max(1, m.scale - 0.04);
-        m.life--;
-    }
+    // Update messages
+    for (const m of messages) { m.y += m.vy; m.alpha -= 1 / m.life; m.life--; }
     messages = messages.filter(m => m.life > 0);
 
     render();
@@ -970,9 +847,7 @@ function initGame() {
     gamePaused = false;
     lockDelayActive = false; lockTimer = 0;
     lineClearAnim = null;
-    shakeTimer = 0; shakeAmt = 0; shakeX = 0; shakeY = 0;
-    hardDropTrail = null;
-    lockFlash = null;
+    shakeTimer = 0; shakeAmt = 0;
     lockResets = 0;
     pieceEnterAnim = 0;
     document.getElementById('pause-overlay').style.display = 'none';
@@ -1014,25 +889,17 @@ function endGame() {
     finalScoreElement.style.display = 'block';
 
     if (score > previousBest) {
-        finalScoreElement.innerHTML = `Score: <span class="num">${score}</span>  │  <span>New Best: <span class="num">${score}</span></span>`;
+        // New All-Time Best!
+        finalScoreElement.innerHTML = `Score: ${score}  │  <span>New Best: ${score}</span>`;
     } else {
-        finalScoreElement.innerHTML = `Score: <span class="num">${score}</span>  │  Best: <span class="num">${previousBest}</span>`;
+        // Just a regular game over
+        finalScoreElement.textContent = `Score: ${score}  │  Best: ${previousBest}`;
     }
     // --------------------------
 
     document.getElementById('overlay').querySelector('h1').textContent = 'GAME OVER';
     document.getElementById('start-btn').textContent = 'PLAY AGAIN';
     document.getElementById('overlay').style.display = 'flex';
-
-    // GSAP game-over entrance
-    if (typeof gsap !== 'undefined') {
-        const h1  = document.querySelector('#overlay h1');
-        const fs  = document.getElementById('final-score');
-        const btns = Array.from(document.querySelectorAll('#overlay button')).filter(b => b.style.display !== 'none');
-        gsap.fromTo(h1,  { scale: 1.4, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: 'back.out(2)' });
-        if (fs)           gsap.fromTo(fs,   { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, delay: 0.25, ease: 'power2.out' });
-        if (btns.length)  gsap.fromTo(btns, { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.3, delay: 0.4, stagger: 0.08, ease: 'power2.out' });
-    }
 
     document.getElementById('highscores-display').style.display = 'block';
     displayHighScores();
@@ -1222,26 +1089,19 @@ document.getElementById('submit-name-btn').addEventListener('click', () => {
 });
 
 // Initial setup on page load
-loadHighScores();
-displayHighScores();
+loadHighScores(); // Load scores from localStorage
+displayHighScores(); // Populate the high score list on the overlay
+
+// Ensure the #highscores-display is visible when the #overlay is initially shown
 document.getElementById('highscores-display').style.display = 'block';
-spinValue('best-val', highScore);
+
+// Initial render of empty board + show saved best score
+document.getElementById('best-val').textContent = highScore;
+// Show load button if a save exists
 if (localStorage.getItem('tetrisSave')) {
     document.getElementById('load-btn').style.display = 'block';
 }
 render();
-
-// GSAP entrance animation for the title overlay
-(function animateOverlay() {
-    if (typeof gsap === 'undefined') return;
-    const letters = Array.from(document.querySelectorAll('#overlay h1 span'));
-    const sub     = document.querySelector('#overlay .sub');
-    const btns    = Array.from(document.querySelectorAll('#overlay button'));
-    gsap.set(letters, { y: -60, opacity: 0, rotationX: 90 });
-    gsap.set([sub, ...btns], { opacity: 0, y: 20 });
-    gsap.to(letters, { y: 0, opacity: 1, rotationX: 0, duration: 0.5, ease: 'back.out(1.4)', stagger: 0.07, delay: 0.1 });
-    gsap.to([sub, ...btns], { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out', stagger: 0.1, delay: 0.65 });
-})();
 
 // ─── MOBILE CONTROLS (BUTTONS ONLY) ─────────────────────────────────────────
 (function () {
@@ -1325,7 +1185,7 @@ updateUI = function () {
     const ml = document.getElementById('m-level');
     const mn = document.getElementById('m-lines');
     if (ms) ms.textContent = score;
-    if (ml) ml.textContent = level + 1;
+    if (ml) ml.textContent = level;
     if (mn) mn.textContent = linesCleared;
 };
 
