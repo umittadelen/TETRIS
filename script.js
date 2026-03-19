@@ -7,9 +7,13 @@ const bgMusic = document.getElementById('bg-music');
 bgMusic.volume = 0.4;
 let isMuted = false;
 
+const _audioPool = {};
 function playSound(src, volume = 1.0) {
-    const a = new Audio(src);
+    if (isMuted) return;
+    if (!_audioPool[src]) _audioPool[src] = new Audio(src);
+    const a = _audioPool[src];
     a.volume = volume;
+    a.currentTime = 0;
     a.play().catch(() => {});
 }
 
@@ -168,10 +172,14 @@ let shakeTimer = 0, shakeAmt = 0, shakeX = 0, shakeY = 0;
 
 // Hard drop trail & lock flash
 let hardDropTrail = null;
-let lockFlash = null;
+let lockFlash = null; // { cells, timer, total }
+let levelUpFlash = null; // { timer, total }
 
 // Piece enter animation
 let pieceEnterAnim = 0; // ms remaining
+
+// Live rank target
+let rankTarget = null; // { score, name, rank }
 
 // High score (single best score for the "Best" display)
 let highScore = parseInt(localStorage.getItem('tetrisHigh') || '0');
@@ -187,6 +195,15 @@ const keyPress = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0, a: 0, d: 0, s: 0 }
 const keyRepeat = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0, a: 0, d: 0, s: 0 };
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
+function timeAgo(ts) {
+    const s = Math.floor((Date.now() - ts) / 1000);
+    if (s < 60) return 'just now';
+    const m = Math.floor(s / 60); if (m < 60) return m + 'm ago';
+    const h = Math.floor(m / 60); if (h < 24) return h + 'h ago';
+    const d = Math.floor(h / 24); if (d < 7) return d + 'd ago';
+    return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
 function getSpeed() {
     return Math.max(17, getGuidelineSpeed(level));
 }
@@ -388,7 +405,7 @@ function lockPiece(dropDist, isHard) {
                 grid[piece.y + r][piece.x + c] = COLORS[piece.idx];
                 flashCells.push({ x: piece.x + c, y: piece.y + r });
             }
-    lockFlash = { cells: flashCells, timer: 0, total: 180 };
+    lockFlash = { cells: flashCells, timer: 0, total: 400 };
     const animStarted = clearLines(tspin);
     if (!animStarted) newPiece();
     dropTimer = 0;
@@ -467,7 +484,7 @@ function clearLines(tspin) {
         lineClearAnim = { rows: full, timer: 0, total: 300, num, lv, prevB2b };
         linesCleared += num;
         const newLevel = Math.floor(linesCleared / 10);
-        if (newLevel !== level) { level = newLevel; playSound('./sounds/levelUp.mp3'); lv = level + 1; }
+        if (newLevel !== level) { level = newLevel; playSound('./sounds/levelUp.mp3'); lv = level + 1; levelUpFlash = { timer: 0, total: 600 }; spawnMessage('LEVEL UP!'); }
         updateUI();
         return true; // caller must NOT call newPiece yet
     }
@@ -645,16 +662,32 @@ function render() {
         ctx.globalAlpha = 1;
     }
 
-    // Lock flash — bright stamp on placed cells
+    // Lock flash — cells blink white 3 times
     if (lockFlash) {
         const t = lockFlash.timer / lockFlash.total;
-        const alpha = Math.pow(1 - t, 2) * 0.85;
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = '#ffffff';
-        for (const cell of lockFlash.cells) {
-            ctx.fillRect(cell.x * BLOCK, cell.y * BLOCK, BLOCK, BLOCK);
+        const alpha = Math.max(0, Math.sin(t * Math.PI * 3)) * (1 - t) * 0.85;
+        if (alpha > 0) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ffffff';
+            for (const cell of lockFlash.cells) {
+                ctx.fillRect(cell.x * BLOCK, cell.y * BLOCK, BLOCK, BLOCK);
+            }
+            ctx.globalAlpha = 1;
         }
-        ctx.globalAlpha = 1;
+    }
+
+    // Level-up flash — whole board pulses twice
+    if (levelUpFlash) {
+        const t = levelUpFlash.timer / levelUpFlash.total;
+        const p1 = Math.max(0, 1 - t / 0.2);
+        const p2 = Math.max(0, 1 - Math.abs(t - 0.35) / 0.15);
+        const alpha = Math.max(p1, p2 * 0.5) * 0.45;
+        if (alpha > 0) {
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, COLS * BLOCK, ROWS * BLOCK);
+            ctx.globalAlpha = 1;
+        }
     }
 
     // Line clear animation — flash bright then collapse rows
@@ -734,6 +767,7 @@ function updateUI() {
     spinValue('level-val', level + 1);
     spinValue('lines-val', linesCleared);
     spinValue('best-val', best);
+    updateMobileUI();
 }
 
 function spinValue(id, newVal) {
@@ -861,6 +895,10 @@ function gameLoop(ts) {
         lockFlash.timer += dt;
         if (lockFlash.timer >= lockFlash.total) lockFlash = null;
     }
+    if (levelUpFlash) {
+        levelUpFlash.timer += dt;
+        if (levelUpFlash.timer >= levelUpFlash.total) levelUpFlash = null;
+    }
     if (pieceEnterAnim > 0) pieceEnterAnim = Math.max(0, pieceEnterAnim - dt);
 
     // Update messages — scale pops in then settles to 1
@@ -872,6 +910,16 @@ function gameLoop(ts) {
         m.life--;
     }
     messages = messages.filter(m => m.life > 0);
+
+    // Live rank target — check if we just passed someone
+    if (rankTarget && score > rankTarget.score) {
+        spawnMessage(`YOU PASSED ${rankTarget.name}!`);
+        playSound('./sounds/levelUp.mp3', 0.5);
+        const nextIdx = rankTarget.rank - 2;
+        rankTarget = nextIdx >= 0
+            ? { score: highScores[nextIdx].score, name: highScores[nextIdx].name, rank: nextIdx + 1 }
+            : null;
+    }
 
     render();
     animFrame = requestAnimationFrame(gameLoop);
@@ -939,7 +987,7 @@ function loadHighScores() {
             highScores = JSON.parse(rawScores);
             // Ensure scores are numbers and sort them
             highScores = highScores
-                .map(s => ({ name: s.name, score: parseInt(s.score) }))
+                .map(s => ({ name: s.name, score: parseInt(s.score), date: s.date || null }))
                 .filter(s => !isNaN(s.score))
                 .sort((a, b) => b.score - a.score);
             // Trim if there are too many (e.g. if MAX_HIGH_SCORES changed)
@@ -965,7 +1013,10 @@ function displayHighScores() {
     highscoresList.innerHTML = ''; // Clear previous entries
     
     if (highScores.length === 0) {
-        highscoresList.innerHTML = '<li style="text-align:center; padding: 20px;">No high scores yet!</li>';
+        const li = document.createElement('li');
+        li.style.cssText = 'text-align:center; padding: 20px;';
+        li.textContent = 'No high scores yet!';
+        highscoresList.appendChild(li);
         return;
     }
 
@@ -976,7 +1027,14 @@ function displayHighScores() {
         const rank = document.createElement('span'); rank.className = 'hs-rank'; rank.textContent = (index + 1) + '.';
         const ename = document.createElement('span'); ename.className = 'hs-name'; ename.textContent = entry.name;
         const esc = document.createElement('span'); esc.className = 'hs-score'; esc.textContent = entry.score;
-        li.append(rank, ename, esc);
+        const edate = document.createElement('span'); edate.className = 'hs-date';
+        if (entry.date) {
+            const d = new Date(entry.date);
+            edate.textContent = timeAgo(entry.date);
+            edate.appendChild(document.createElement('br'));
+            edate.appendChild(document.createTextNode(d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })));
+        }
+        li.append(rank, ename, esc, edate);
         highscoresList.appendChild(li);
     });
 }
@@ -1008,6 +1066,14 @@ function initGame() {
     lockFlash = null;
     lockResets = 0;
     pieceEnterAnim = 0;
+    levelUpFlash = null;
+    rankTarget = null;
+    if (highScores.length > 0) {
+        for (let i = highScores.length - 1; i >= 0; i--) {
+            rankTarget = { score: highScores[i].score, name: highScores[i].name, rank: i + 1 };
+            break;
+        }
+    }
     document.getElementById('pause-overlay').style.display = 'none';
     newPiece();
     renderHold();
@@ -1044,7 +1110,7 @@ function endGame() {
 
     // --- UPDATED LOGIC HERE ---
     const finalScoreElement = document.getElementById('final-score');
-    finalScoreElement.style.display = 'block';
+    finalScoreElement.style.display = 'flex';
 
     finalScoreElement.textContent = '';
     const makeNum = v => { const s = document.createElement('span'); s.className = 'num'; s.textContent = v; return s; };
@@ -1058,7 +1124,11 @@ function endGame() {
     }
     // --------------------------
 
-    document.getElementById('overlay').querySelector('h1').textContent = 'GAME OVER';
+    const overlayH1 = document.getElementById('overlay').querySelector('h1');
+    overlayH1.dataset.state = 'gameover';
+    overlayH1.querySelectorAll('span').forEach((s, i) => {
+        s.textContent = 'GAME OVER'[i] ?? '';
+    });
     document.getElementById('start-btn').textContent = 'PLAY AGAIN';
     document.getElementById('overlay').style.display = 'flex';
 
@@ -1121,9 +1191,14 @@ document.getElementById('skip-save-btn').addEventListener('click', () => {
 document.getElementById('start-btn').addEventListener('click', () => {
     document.getElementById('overlay').style.display = 'none';
     document.getElementById('final-score').style.display = 'none';
-    document.getElementById('overlay').querySelector('h1').textContent = 'TETRIS';
-    document.getElementById('new-highscore-entry').style.display = 'none'; // Hide high score name input
-    document.getElementById('highscores-display').style.display = 'none'; // Hide high scores when game starts
+    const overlayH1 = document.getElementById('overlay').querySelector('h1');
+    if (overlayH1.dataset.state === 'gameover') {
+        const letters = ['T','E','T','R','I','S'];
+        overlayH1.querySelectorAll('span').forEach((s, i) => { s.textContent = letters[i]; });
+        overlayH1.dataset.state = '';
+    }
+    document.getElementById('new-highscore-entry').style.display = 'none';
+    document.getElementById('highscores-display').style.display = 'none';
     initGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
@@ -1154,7 +1229,7 @@ document.getElementById('submit-name-btn').addEventListener('click', () => {
         }
     } else {
         // Name does not exist: Add as new entry
-        highScores.push({ name: playerName, score: score });
+        highScores.push({ name: playerName, score: score, date: Date.now() });
     }
 
     // 2. Sort and Trim
@@ -1265,17 +1340,15 @@ render();
     }
 })();
 
-// Update mobile stat bar alongside desktop UI
-const origUpdateUI = updateUI;
-updateUI = function () {
-    origUpdateUI();
+// Update mobile stat bar alongside desktop UI — patched into updateUI directly
+function updateMobileUI() {
     const ms = document.getElementById('m-score');
     const ml = document.getElementById('m-level');
     const mn = document.getElementById('m-lines');
     if (ms) ms.textContent = score;
     if (ml) ml.textContent = level + 1;
     if (mn) mn.textContent = linesCleared;
-};
+}
 
 // Prevent default touch behavior on game area to stop scrolling/zooming
 // but allow buttons/controls to work normally

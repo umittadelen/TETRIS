@@ -9,14 +9,13 @@
         table { border-collapse: collapse; width: 360px; }
         th { text-align: left; font-size: 10px; letter-spacing: 2px; color: #5a5a8a; padding: 6px 12px; border-bottom: 1px solid #3a3a5c; }
         td { padding: 8px 12px; border-bottom: 1px solid #1e1e30; font-size: 13px; }
+        td:nth-child(3) { border-right: 1px solid #3a3a5c; }
         td:last-child { text-align: right; }
         button.del { background: #e04040; color: #fff; border: none; padding: 4px 10px; cursor: pointer; font-family: monospace; font-size: 11px; letter-spacing: 1px; }
         button.del:hover { background: #ff6060; }
         #status { margin-top: 20px; font-size: 11px; color: #f0c040; letter-spacing: 1px; min-height: 16px; }
         #clear-all { margin-top: 24px; background: #3a3a5c; color: #d0d0ff; border: 1px solid #5a5a8a; padding: 8px 20px; cursor: pointer; font-family: monospace; font-size: 11px; letter-spacing: 2px; }
         #clear-all:hover { background: #e04040; color: #fff; border-color: #e04040; }
-        #back { display: block; margin-bottom: 32px; font-size: 11px; letter-spacing: 2px; color: #5a5a8a; text-decoration: none; text-transform: uppercase; }
-        #back:hover { color: #d0d0ff; }
         #back { display: block; margin-bottom: 32px; font-size: 11px; letter-spacing: 2px; color: #5a5a8a; text-decoration: none; text-transform: uppercase; }
         #back:hover { color: #d0d0ff; }
     </style>
@@ -55,11 +54,13 @@
             }
             scores.forEach((entry, i) => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td style="color:#5a5a8a">${i + 1}.</td>
-                    <td>${entry.name}</td>
-                    <td style="color:#f0c040;font-family:'Courier New',monospace">${entry.score}</td>
-                    <td><button class="del" data-index="${i}">DELETE</button></td>`;
+                const tdRank = document.createElement('td'); tdRank.style.color = '#5a5a8a'; tdRank.textContent = (i + 1) + '.';
+                const tdName = document.createElement('td'); tdName.textContent = entry.name;
+                const tdScore = document.createElement('td'); tdScore.style.color = '#f0c040'; tdScore.style.fontFamily = "'Courier New',monospace"; tdScore.textContent = entry.score;
+                const tdDel = document.createElement('td');
+                const btn = document.createElement('button'); btn.className = 'del'; btn.dataset.index = i; btn.textContent = 'DELETE';
+                tdDel.appendChild(btn);
+                tr.append(tdRank, tdName, tdScore, tdDel);
                 tbody.appendChild(tr);
             });
         }

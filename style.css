@@ -7,10 +7,12 @@
 @font-face {
     font-family: "DSEG7Classic";
     src: url('fonts/DSEG7ClassicMini-Regular.ttf') format('truetype');
+    font-display: block;
 }
 @font-face {
     font-family: "Inter";
     src: url('fonts/Inter.ttf') format('truetype');
+    font-display: block;
 }
 /* NES used a very specific dark navy, not pure black */
 :root {
@@ -76,6 +78,10 @@ canvas {
     flex-direction: column;
     gap: 0;
     width: 88px;
+}
+
+.side-panel--left {
+    align-items: flex-end;
 }
 
 /* Left panel aligns to board top */
@@ -189,7 +195,7 @@ canvas {
     border: 2px solid var(--border);
     padding: 8px 16px;
     background: var(--panel-bg);
-    display: flex;
+    display: none;
     align-items: center;
     gap: 6px;
     line-height: 1;
@@ -299,12 +305,30 @@ canvas {
     gap: 7px;
 }
 
-#mute-btn.muted {
-    color: var(--text-dim) !important;
-    border-color: var(--text-dim) !important;
+#mute-icon-off {
+    display: none;
 }
 
-/* ─── PAUSE OVERLAY ──────────────────────────────────────── */
+#confirm-panel {
+    display: none;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.confirm-text {
+    margin-bottom: 14px;
+    color: var(--white);
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+.confirm-btns {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+
 #pause-overlay {
     position: fixed;
     inset: 0;
@@ -357,6 +381,10 @@ canvas {
 }
 
 /* ─── HIGH SCORES ────────────────────────────────────────── */
+#highscores-display {
+    display: none;
+}
+
 #highscores-display h3 {
     font-size: clamp(10px, 1vw, 12px);
     letter-spacing: 4px;
@@ -372,15 +400,15 @@ canvas {
     list-style: none;
     padding: 0;
     margin: 0 auto;
-    width: 260px;
+    width: 320px;
     border: 2px solid var(--border);
     background: var(--panel-bg);
 }
 
 .highscore-item {
     display: grid;
-    grid-template-columns: 26px 1fr auto;
-    align-items: center;
+    grid-template-columns: 26px 1fr minmax(70px, auto) 56px;
+    align-items: stretch;
     padding: 6px 10px;
     border-bottom: 1px solid var(--border);
     font-size: clamp(12px, 1.1vw, 14px);
@@ -420,17 +448,40 @@ canvas {
     font-family: 'DSEG7Classic', monospace;
     font-size: clamp(12px, 1.1vw, 14px);
     color: var(--gold);
+    text-align: right;
+    padding-right: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
 }
 
-.highscore-item:nth-child(1) { background: rgba(240,192,64,0.08); }
+.highscore-item:nth-child(1) { background: rgba(240,192,64,0.22); border-left: 3px solid var(--gold); }
 .highscore-item:nth-child(1) .hs-rank,
 .highscore-item:nth-child(1) .hs-name { color: var(--gold); }
 
+.highscore-item:nth-child(2) { background: rgba(200,200,200,0.14); border-left: 3px solid #c8c8c8; }
 .highscore-item:nth-child(2) .hs-rank,
 .highscore-item:nth-child(2) .hs-name { color: #c8c8c8; }
 
+.highscore-item:nth-child(3) { background: rgba(220,100,30,0.18); border-left: 3px solid #e8843a; }
 .highscore-item:nth-child(3) .hs-rank,
-.highscore-item:nth-child(3) .hs-name { color: #c87832; }
+.highscore-item:nth-child(3) .hs-name { color: #e8843a; }
+
+.hs-date {
+    font-size: clamp(9px, 0.8vw, 10px);
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    text-align: right;
+    line-height: 1.3;
+    white-space: nowrap;
+    border-left: 1px solid var(--border);
+    padding-left: 8px;
+    min-width: 56px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-end;
+}
 
 /* Name entry */
 #new-highscore-entry p {
@@ -443,7 +494,7 @@ canvas {
 }
 
 #new-highscore-entry {
-    display: flex;
+    display: none;
     flex-direction: column;
     align-items: center;
     gap: 10px;

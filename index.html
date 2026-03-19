@@ -15,8 +15,9 @@
 		<link rel="icon"
 			href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='4' y='4' width='12' height='12' fill='%2300f' rx='1'/><rect x='16' y='4' width='12' height='12' fill='%23ff0' rx='1'/><rect x='4' y='16' width='12' height='12' fill='%23f00' rx='1'/><rect x='16' y='16' width='12' height='12' fill='%230f0' rx='1'/></svg>">
 		<title>Tetris</title>
-		<link rel="preload" href="fonts/Inter.ttf" as="font" crossorigin>
-		<link rel="preload" href="fonts/DSEG7ClassicMini-Regular.ttf" as="font" crossorigin>
+		<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.1/dist/gsap.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+		<link rel="preload" href="fonts/Inter.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+		<link rel="preload" href="fonts/DSEG7ClassicMini-Regular.ttf" as="font" type="font/ttf" crossorigin="anonymous">
 		<link rel="stylesheet" href="style.css">
 	</head>
 
@@ -24,7 +25,7 @@
 
 		<div id="game-wrapper">
 			<!-- Left panel -->
-			<div class="side-panel" style="align-items:flex-end;">
+			<div class="side-panel side-panel--left">
 				<div class="panel-box">
 					<div class="panel-label">Hold</div>
 					<canvas id="hold-canvas"></canvas>
@@ -62,15 +63,15 @@
 		<div id="overlay">
 			<h1><span>T</span><span>E</span><span>T</span><span>R</span><span>I</span><span>S</span></h1>
 			<div class="sub">ALL IN EDITION</div>
-			<div class="final-score" id="final-score" style="display:none"></div>
+			<div class="final-score" id="final-score"></div>
 			<button id="start-btn">START GAME</button>
 
 			<!-- High Scores Display -->
-			<div id="highscores-display" style="display:none;">
-				<h3 style="margin-top:30px; margin-bottom:15px; color:#fff;">HIGH SCORES</h3>
+			<div id="highscores-display">
+				<h3>HIGH SCORES</h3>
 				<ol id="highscores-list" class="highscores-list"></ol>
 				<a href="manage-scores.html" id="manage-scores-link">manage scores</a>
-				<div id="new-highscore-entry" style="display:none;">
+				<div id="new-highscore-entry">
 					<p id="highscore-entry-label">NEW HIGH SCORE!</p>
 					<div>
 						<input type="text" id="player-name-input" maxlength="10" placeholder="Your Name" class="player-name-input">
@@ -88,20 +89,18 @@
 				<button id="resume-btn">RESUME</button>
 				<button id="mute-btn">
 					<svg id="mute-icon-on" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-					<svg id="mute-icon-off" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+					<svg id="mute-icon-off" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
 					SOUND ON
 				</button>
 				<button id="new-game-btn">NEW GAME</button>
 			</div>
 
 			<!-- Confirmation panel -->
-			<div id="confirm-panel" style="display:none; margin-top:20px; text-align:center;">
-				<p style="margin-bottom:14px; color:#fff; font-size:13px; letter-spacing:1px;">Are you sure? This will reset
-					the
-					current game.</p>
-				<div style="display:flex; gap:12px; justify-content:center;">
+			<div id="confirm-panel">
+				<p class="confirm-text">Are you sure? This will reset the current game.</p>
+				<div class="confirm-btns">
 					<button id="confirm-yes">YES, RESET</button>
-					<button id="confirm-no" style="background:#444; color:#fff;">CANCEL</button>
+					<button id="confirm-no">CANCEL</button>
 				</div>
 			</div>
 		</div>
@@ -144,7 +143,6 @@
 
 		<audio id="bg-music" src="./sounds/tetris.mp3" loop preload="auto"></audio>
 
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 		<script src="script.js"></script>
 	</body>
 </html>
