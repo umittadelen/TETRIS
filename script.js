@@ -271,6 +271,7 @@ function newPiece() {
     lockResets = 0;
     if (collides(piece.x, piece.y, piece.shape)) {
         endGame();
+        return;
     }
     pieceEnterAnim = 180;
     renderNext();
@@ -317,7 +318,7 @@ function holdPiece() {
         };
         pieceRotation = 0;
         lastActionRotation = false;
-        if (collides(piece.x, piece.y, piece.shape)) endGame();
+        if (collides(piece.x, piece.y, piece.shape)) { endGame(); }
     }
     renderHold();
 }
@@ -1041,6 +1042,19 @@ function displayHighScores() {
 
 // ─── INIT / RESTART ──────────────────────────────────────────────────────────
 function initGame() {
+    const overlayH1 = document.getElementById('overlay').querySelector('h1');
+    overlayH1.classList.remove('gameover');
+    overlayH1.innerHTML = '';
+    ['T','E','T','R','I','S'].forEach(ch => {
+        const s = document.createElement('span');
+        s.textContent = ch;
+        overlayH1.appendChild(s);
+    });
+    document.getElementById('start-btn').textContent = 'START GAME';
+    document.getElementById('overlay').style.display = 'none';
+    document.getElementById('final-score').style.display = 'none';
+    document.getElementById('new-highscore-entry').style.display = 'none';
+    document.getElementById('highscores-display').style.display = 'none';
     grid = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
     bag = [];
     nextQueue = Array.from({ length: NEXT_QUEUE_SIZE }, () => nextFromBag());
@@ -1083,8 +1097,10 @@ function initGame() {
 }
 
 function endGame() {
+    if (!gameRunning) return;
     gameRunning = false;
     cancelAnimationFrame(animFrame);
+    animFrame = null;
     bgMusic.pause();
     bgMusic.currentTime = 0;
 
@@ -1125,9 +1141,12 @@ function endGame() {
     // --------------------------
 
     const overlayH1 = document.getElementById('overlay').querySelector('h1');
-    overlayH1.dataset.state = 'gameover';
-    overlayH1.querySelectorAll('span').forEach((s, i) => {
-        s.textContent = 'GAME OVER'[i] ?? '';
+    overlayH1.classList.add('gameover');
+    overlayH1.innerHTML = '';
+    'GAME OVER'.split('').forEach(ch => {
+        const s = document.createElement('span');
+        s.textContent = ch;
+        overlayH1.appendChild(s);
     });
     document.getElementById('start-btn').textContent = 'PLAY AGAIN';
     document.getElementById('overlay').style.display = 'flex';
@@ -1186,19 +1205,18 @@ document.getElementById('mute-btn').addEventListener('click', () => {
 document.getElementById('skip-save-btn').addEventListener('click', () => {
     document.getElementById('new-highscore-entry').style.display = 'none';
     document.getElementById('start-btn').style.display = 'block';
+    const overlayH1 = document.getElementById('overlay').querySelector('h1');
+    overlayH1.classList.remove('gameover');
+    overlayH1.innerHTML = '';
+    ['T','E','T','R','I','S'].forEach(ch => {
+        const s = document.createElement('span');
+        s.textContent = ch;
+        overlayH1.appendChild(s);
+    });
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
-    document.getElementById('overlay').style.display = 'none';
-    document.getElementById('final-score').style.display = 'none';
-    const overlayH1 = document.getElementById('overlay').querySelector('h1');
-    if (overlayH1.dataset.state === 'gameover') {
-        const letters = ['T','E','T','R','I','S'];
-        overlayH1.querySelectorAll('span').forEach((s, i) => { s.textContent = letters[i]; });
-        overlayH1.dataset.state = '';
-    }
-    document.getElementById('new-highscore-entry').style.display = 'none';
-    document.getElementById('highscores-display').style.display = 'none';
+    cancelAnimationFrame(animFrame);
     initGame();
     animFrame = requestAnimationFrame(gameLoop);
 });
@@ -1244,6 +1262,14 @@ document.getElementById('submit-name-btn').addEventListener('click', () => {
 
     document.getElementById('new-highscore-entry').style.display = 'none';
     document.getElementById('start-btn').style.display = 'block';
+    const overlayH1 = document.getElementById('overlay').querySelector('h1');
+    overlayH1.classList.remove('gameover');
+    overlayH1.innerHTML = '';
+    ['T','E','T','R','I','S'].forEach(ch => {
+        const s = document.createElement('span');
+        s.textContent = ch;
+        overlayH1.appendChild(s);
+    });
     updateUI();
 });
 

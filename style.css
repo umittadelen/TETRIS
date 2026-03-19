@@ -177,6 +177,8 @@ canvas {
 #overlay h1 span:nth-child(5) { color: #38c8f8; }
 #overlay h1 span:nth-child(6) { color: #b040f8; }
 
+#overlay h1.gameover span { color: var(--white); }
+
 #overlay .sub {
     font-size: clamp(11px, 1vw, 13px);
     letter-spacing: 5px;
