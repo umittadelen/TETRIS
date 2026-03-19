@@ -431,6 +431,8 @@ canvas {
     color: var(--text-dim);
     font-family: monospace;
     font-weight: 700;
+    display: flex;
+    align-items: center;
 }
 
 .hs-name {
@@ -442,6 +444,8 @@ canvas {
     letter-spacing: 1px;
     font-weight: 700;
     font-size: clamp(11px, 1vw, 13px);
+    display: flex;
+    align-items: center;
 }
 
 .hs-score {
