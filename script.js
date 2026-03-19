@@ -78,24 +78,34 @@ function getGuidelineSpeed(lv) {
     return Math.pow(0.8 - (l - 1) * 0.007, l - 1) * 1000;
 }
 
-// SRS kick tables  (dx = right, dy = down — converted from Tetris wiki which uses +y=up)
+// SRS kick tables — states: 0=spawn, 1=CW(R), 2=180, 3=CCW(L)
+// dx=right positive, dy=down positive (canvas coords, wiki +y=up is negated)
 const KICKS_JLSTZ = {
-    '0>1': [[0, 0], [-1, 0], [-1, -1], [0, 2], [-1, 2]],
-    '1>2': [[0, 0], [1, 0], [1, 1], [0, -2], [1, -2]],
-    '2>3': [[0, 0], [1, 0], [1, -1], [0, 2], [1, 2]],
-    '3>0': [[0, 0], [-1, 0], [-1, 1], [0, -2], [-1, -2]],
+    '0>1': [[ 0,0],[-1, 0],[-1,-1],[0, 2],[-1, 2]],  // 0->R
+    '1>0': [[ 0,0],[ 1, 0],[ 1, 1],[0,-2],[ 1,-2]],  // R->0
+    '1>2': [[ 0,0],[ 1, 0],[ 1, 1],[0,-2],[ 1,-2]],  // R->2
+    '2>1': [[ 0,0],[-1, 0],[-1,-1],[0, 2],[-1, 2]],  // 2->R
+    '2>3': [[ 0,0],[ 1, 0],[ 1,-1],[0, 2],[ 1, 2]],  // 2->L
+    '3>2': [[ 0,0],[-1, 0],[-1, 1],[0,-2],[-1,-2]],  // L->2
+    '3>0': [[ 0,0],[-1, 0],[-1, 1],[0,-2],[-1,-2]],  // L->0
+    '0>3': [[ 0,0],[ 1, 0],[ 1,-1],[0, 2],[ 1, 2]],  // 0->L
 };
 const KICKS_I = {
-    '0>1': [[0, 0], [-2, 0], [1, 0], [-2, 1], [1, -2]],
-    '1>2': [[0, 0], [-1, 0], [2, 0], [-1, -2], [2, 1]],
-    '2>3': [[0, 0], [2, 0], [-1, 0], [2, -1], [-1, 2]],
-    '3>0': [[0, 0], [1, 0], [-2, 0], [1, 2], [-2, -1]],
+    '0>1': [[ 0,0],[-2, 0],[ 1, 0],[-2, 1],[ 1,-2]],  // 0->R
+    '1>0': [[ 0,0],[ 2, 0],[-1, 0],[ 2,-1],[-1, 2]],  // R->0
+    '1>2': [[ 0,0],[-1, 0],[ 2, 0],[-1,-2],[ 2, 1]],  // R->2
+    '2>1': [[ 0,0],[ 1, 0],[-2, 0],[ 1, 2],[-2,-1]],  // 2->R
+    '2>3': [[ 0,0],[ 2, 0],[-1, 0],[ 2,-1],[-1, 2]],  // 2->L
+    '3>2': [[ 0,0],[-2, 0],[ 1, 0],[-2, 1],[ 1,-2]],  // L->2
+    '3>0': [[ 0,0],[ 1, 0],[-2, 0],[ 1, 2],[-2,-1]],  // L->0
+    '0>3': [[ 0,0],[-1, 0],[ 2, 0],[-1,-2],[ 2, 1]],  // 0->L
 };
 const NEXT_QUEUE_SIZE = 3;
 
-// DAS/ARR
-const DAS = 150;
-const ARR = 40;
+// DAS/ARR (guideline: DAS 167ms, ARR 33ms)
+const DAS = 167;
+const ARR = 33;
+const SOFT_DROP_SPEED = 50; // ms per row (guideline: 20× gravity)
 
 // ─── CANVAS SETUP ────────────────────────────────────────────────────────────
 const MINI = Math.max(16, Math.round(BLOCK * 0.75));
@@ -139,7 +149,7 @@ let grid, piece, nextQueue, heldIdx, canHold;
 let score, level, linesCleared, combo, b2b;
 let lastActionRotation, pieceRotation;
 let bag;
-let dropTimer, lastTime;
+let dropTimer, softDropTimer, lastTime;
 let messages = [];
 let gameRunning = false;
 let gamePaused = false;
@@ -202,6 +212,15 @@ function rotateCW(shape) {
     return result;
 }
 
+function rotateCCW(shape) {
+    const rows = shape.length, cols = shape[0].length;
+    const result = Array.from({ length: cols }, () => Array(rows).fill(0));
+    for (let r = 0; r < rows; r++)
+        for (let c = 0; c < cols; c++)
+            result[cols - 1 - c][r] = shape[r][c];
+    return result;
+}
+
 function collides(px, py, shape) {
     for (let r = 0; r < shape.length; r++)
         for (let c = 0; c < shape[r].length; c++)
@@ -240,30 +259,26 @@ function newPiece() {
     renderNext();
 }
 
-function rotatePiece() {
-    if (lineClearAnim) return;
-    const rotated = rotateCW(piece.shape);
-    const newRot = (pieceRotation + 1) % 4;
+function tryRotate(rotated, newRot) {
     const key = `${pieceRotation}>${newRot}`;
-    let kicks;
-    if (piece.idx === 0) kicks = KICKS_I[key] || [[0, 0]];
-    else if (piece.idx === 3) return; // O – no rotation
-    else kicks = KICKS_JLSTZ[key] || [[0, 0]];
-
-    for (const [dx, dy] of kicks) {
+    const kicks = piece.idx === 0 ? KICKS_I[key] : KICKS_JLSTZ[key];
+    for (const [dx, dy] of (kicks || [[0,0]])) {
         if (!collides(piece.x + dx, piece.y + dy, rotated)) {
-            piece.x += dx;
-            piece.y += dy;
+            piece.x += dx; piece.y += dy;
             piece.shape = rotated;
             pieceRotation = newRot;
             lastActionRotation = true;
-            if (lockDelayActive && lockResets < MAX_LOCK_RESETS) {
-                lockTimer = 0;
-                lockResets++;
-            }
+            if (lockDelayActive && lockResets < MAX_LOCK_RESETS) { lockTimer = 0; lockResets++; }
             return;
         }
     }
+}
+
+function rotatePiece(ccw = false) {
+    if (lineClearAnim) return;
+    if (piece.idx === 3) return; // O – no rotation
+    const newRot = ccw ? (pieceRotation + 3) % 4 : (pieceRotation + 1) % 4;
+    tryRotate(ccw ? rotateCCW(piece.shape) : rotateCW(piece.shape), newRot);
 }
 
 function holdPiece() {
@@ -301,10 +316,9 @@ function movePiece(dx, dy) {
             if (lockDelayActive && lockResets < MAX_LOCK_RESETS) {
                 lockTimer = 0;
                 lockResets++;
-                if (!collides(piece.x, piece.y + 1, piece.shape)) lockDelayActive = false;
             }
         }
-        if (dy > 0) { lockDelayActive = false; lockTimer = 0; }
+        if (dy > 0) { dropTimer = 0; lockDelayActive = false; lockTimer = 0; }
         return true;
     } else if (dy > 0) {
         if (!lockDelayActive) { lockDelayActive = true; lockTimer = 0; }
@@ -350,10 +364,10 @@ function detectTspin() {
     const count = corners.filter(Boolean).length;
     if (count >= 3) return 'tspin';
     const frontPairs = {
-        0: [corners[2], corners[3]], // front = bottom
-        1: [corners[1], corners[3]], // front = right
-        2: [corners[0], corners[1]], // front = top
-        3: [corners[0], corners[2]], // front = left
+        0: [corners[0], corners[1]], // front = top  (flat side faces up at spawn)
+        1: [corners[1], corners[3]], // front = right (after CW)
+        2: [corners[2], corners[3]], // front = bottom (after 180)
+        3: [corners[0], corners[2]], // front = left (after CCW)
     };
     const [f1, f2] = frontPairs[pieceRotation];
     if (f1 && f2) return 'tspin';
@@ -796,6 +810,19 @@ function gameLoop(ts) {
             movePiece(0, 1);
         }
 
+        // Soft drop (held down key) — fixed 50ms per row, independent of gravity
+        const softHeld = keyHeld['ArrowDown'] || keyHeld['s'];
+        if (softHeld) {
+            softDropTimer += dt;
+            while (softDropTimer >= SOFT_DROP_SPEED) {
+                softDropTimer -= SOFT_DROP_SPEED;
+                if (movePiece(0, 1)) score += 1;
+                else break;
+            }
+        } else {
+            softDropTimer = 0;
+        }
+
         // Lock delay
         if (lockDelayActive) {
             lockTimer += dt;
@@ -807,13 +834,12 @@ function gameLoop(ts) {
 
         // DAS/ARR
         const now = ts;
-        for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowDown', 'a', 'd', 's']) {
+        for (const key of ['ArrowLeft', 'ArrowRight', 'a', 'd']) {
             if (keyHeld[key]) {
                 if (now - keyPress[key] >= DAS && now - keyRepeat[key] >= ARR) {
                     keyRepeat[key] = now;
                     if (key === 'ArrowLeft' || key === 'a') movePiece(-1, 0);
                     if (key === 'ArrowRight' || key === 'd') movePiece(1, 0);
-                    if (key === 'ArrowDown' || key === 's') movePiece(0, 1);
                 }
             }
         }
@@ -888,7 +914,10 @@ document.addEventListener('keydown', e => {
 
     switch (e.key) {
         case 'ArrowUp':
-        case 'w': if (!e.repeat) rotatePiece(); e.preventDefault(); break;
+        case 'w': if (!e.repeat) rotatePiece(false); e.preventDefault(); break;
+        case 'z':
+        case 'Z':
+        case 'Control': if (!e.repeat) rotatePiece(true); e.preventDefault(); break;
         case ' ': if (!e.repeat) hardDrop(); e.preventDefault(); break;
         case 'Shift':
         case 'ShiftLeft':
@@ -968,6 +997,7 @@ function initGame() {
     pieceRotation = 0;
     messages = [];
     dropTimer = 0;
+    softDropTimer = 0;
     lastTime = null;
     gameRunning = true;
     gamePaused = false;
@@ -1000,9 +1030,10 @@ function endGame() {
     const previousBest = highScores.length > 0 ? highScores[0].score : 0;
 
     let isNewHighScoreForTable = false;
-    // Check if score qualifies for top 10
-    if (highScores.length < MAX_HIGH_SCORES || score > highScores[highScores.length - 1].score) {
+    if (score > 0 && (highScores.length < MAX_HIGH_SCORES || score > highScores[highScores.length - 1].score)) {
         isNewHighScoreForTable = true;
+        const isTopScore = highScores.length === 0 || score > highScores[0].score;
+        document.getElementById('highscore-entry-label').textContent = isTopScore ? 'NEW HIGH SCORE!' : 'LEADERBOARD WORTHY!';
         highscoresEntryDiv.style.display = 'block';
         playerNameInput.value = '';
         playerNameInput.focus();
@@ -1080,6 +1111,11 @@ document.getElementById('mute-btn').addEventListener('click', () => {
     document.getElementById('mute-icon-off').style.display = isMuted ? '' : 'none';
     document.getElementById('mute-btn').lastChild.textContent = isMuted ? 'SOUND OFF' : 'SOUND ON';
     document.getElementById('mute-btn').classList.toggle('muted', isMuted);
+});
+
+document.getElementById('skip-save-btn').addEventListener('click', () => {
+    document.getElementById('new-highscore-entry').style.display = 'none';
+    document.getElementById('start-btn').style.display = 'block';
 });
 
 document.getElementById('start-btn').addEventListener('click', () => {
@@ -1218,7 +1254,7 @@ render();
     setupBtn('tb-left', () => movePiece(-1, 0), true);
     setupBtn('tb-right', () => movePiece(1, 0), true);
     setupBtn('tb-down', () => movePiece(0, 1), true);
-    setupBtn('tb-rotate', () => rotatePiece(), false);
+    setupBtn('tb-rotate', () => rotatePiece(false), false);
     setupBtn('tb-hard', () => hardDrop(), false);
     setupBtn('tb-hold', () => holdPiece(), false);
 

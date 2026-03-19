@@ -89,7 +89,7 @@ canvas {
 .panel-box {
     background: var(--panel-bg);
     border: 2px solid var(--border);
-    padding: 8px 0px 10px 0px;
+    padding: 8px;
     margin-bottom: 6px;
     position: relative;
     width: min-content;
@@ -193,6 +193,7 @@ canvas {
     align-items: center;
     gap: 6px;
     line-height: 1;
+    margin-bottom: 10px;
 }
 
 #overlay .final-score span {
@@ -262,6 +263,14 @@ canvas {
 
 #submit-name-btn {
     margin-bottom: 0 !important;
+}
+
+#skip-save-btn {
+    display: block;
+    margin: 8px auto 0;
+    width: fit-content;
+    background: var(--gold) !important;
+    color: #000 !important;
 }
 
 #start-btn {
