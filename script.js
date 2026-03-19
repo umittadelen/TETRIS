@@ -1196,8 +1196,8 @@ document.getElementById('confirm-no').addEventListener('click', () => {
 document.getElementById('mute-btn').addEventListener('click', () => {
     isMuted = !isMuted;
     bgMusic.muted = isMuted;
-    document.getElementById('mute-icon-on').style.display = isMuted ? 'none' : '';
-    document.getElementById('mute-icon-off').style.display = isMuted ? '' : 'none';
+    document.getElementById('mute-icon-on').style.display = isMuted ? 'none' : 'inline-block';
+    document.getElementById('mute-icon-off').style.display = isMuted ? 'inline-block' : 'none';
     document.getElementById('mute-btn').lastChild.textContent = isMuted ? 'SOUND OFF' : 'SOUND ON';
     document.getElementById('mute-btn').classList.toggle('muted', isMuted);
 });
