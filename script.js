@@ -72,12 +72,11 @@ const SHAPES = [
      [0, 0, 0]],
 ];
 
-// NES speed table (ms per row)
-const SPEED = {
-    0: 800, 1: 717, 2: 633, 3: 550, 4: 467, 5: 383, 6: 300, 7: 217, 8: 133, 9: 100,
-    10: 83, 11: 83, 12: 83, 13: 67, 14: 67, 15: 67, 16: 50, 17: 50, 18: 50,
-    19: 33, 20: 33, 21: 33, 22: 33, 23: 33, 24: 33, 25: 33, 26: 33, 27: 33, 28: 33, 29: 17
-};
+// Tetris guideline speed: (0.8 - (level-1)*0.007)^(level-1) seconds, level is 1-based
+function getGuidelineSpeed(lv) {
+    const l = lv + 1; // lv is 0-based internally
+    return Math.pow(0.8 - (l - 1) * 0.007, l - 1) * 1000;
+}
 
 // SRS kick tables  (dx = right, dy = down — converted from Tetris wiki which uses +y=up)
 const KICKS_JLSTZ = {
@@ -179,11 +178,7 @@ const keyRepeat = { ArrowLeft: 0, ArrowRight: 0, ArrowDown: 0, a: 0, d: 0, s: 0 
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function getSpeed() {
-    let spd = SPEED[0];
-    for (const k of Object.keys(SPEED).map(Number).sort((a, b) => a - b)) {
-        if (level >= k) spd = SPEED[k];
-    }
-    return spd;
+    return Math.max(17, getGuidelineSpeed(level));
 }
 
 function nextFromBag() {
@@ -404,9 +399,9 @@ function clearLines(tspin) {
         actionScore = (sc[num] || 0) * lv;
         msg = ms[num] || 'T-SPIN';
     } else if (tspin === 'mini') {
-        // Mini T-spin
-        const sc = { 0: 100, 1: 200, 2: 400 };
-        const ms = { 0: 'MINI T-SPIN', 1: 'MINI T-SPIN SINGLE', 2: 'MINI T-SPIN DOUBLE' };
+        // Mini T-spin (guideline: 0 lines=100, 1 line=200; no mini double)
+        const sc = { 0: 100, 1: 200 };
+        const ms = { 0: 'MINI T-SPIN', 1: 'MINI T-SPIN SINGLE' };
         isDifficult = num > 0;
         actionScore = (sc[num] || 0) * lv;
         msg = ms[num] || 'MINI T-SPIN';
@@ -439,7 +434,7 @@ function clearLines(tspin) {
         if (num > 0) {
             combo++;
             if (combo > 0) {
-                score += 50 * combo * lv;
+                score += 50 * combo;  // guideline combo bonus is flat (not level-scaled)
                 msg += ` COMBO x${combo}`;
             }
         } else {
